@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ConnectionStatus } from '$lib/../routes/p2p.js';
+	import type { ConnectionStatus } from '$lib/client/p2p.js';
 	import Activity from '@lucide/svelte/icons/activity';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -21,6 +21,15 @@
 	}: Props = $props();
 
 	let room_id = $state('');
+  
+  const connectionStatusToLabel = {
+    Disconnected: 'Disconnected',
+    TimedOut: 'Connection timed out',
+    Connecting: 'Connecting...',
+    Creating: 'Creating room...',
+    Connected: 'Connected successfully!',
+    None: 'None'
+} as const;
 </script>
 
 <div class="mb-6 rounded-lg">

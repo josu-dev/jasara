@@ -1,37 +1,53 @@
+import type { MessageType } from '$lib/client/p2p.js';
 
 export type RoomId = string;
 
-export type MessageSystem = {
-    type: 'system';
-    text: string;
-};
+export type MessageId = string;
 
-export type MessageText = {
-    type: 'text';
-    sender: string;
-    text: string;
-};
+export type FileId = string;
 
-export type MessageFile = {
-    type: 'file';
-    sender: string;
-    filename: string;
-    fileData: string;
-    fileSize?: number;
+export type MessageText<T extends string = string> = {
+    type: MessageType['TEXT'];
+    id: MessageId;
+    ts: string;
+    sender: T;
+    text: string;
 };
 
 export type MessageFileTransfer = {
-    type: 'file-transfer';
+    type: MessageType['FILE_TRANSFER'];
+    id: MessageId;
+    ts: string;
     sender: string;
-    filename: string;
-    fileSize: number;
-    fileId: string;
+    f_id: FileId;
+    f_name: string;
+    f_type?: string;
+    f_size: number;
+    ts_start?: string;
+    ts_end?: string;
+    chunks_total: number;
     progress: number;
     aborted: boolean;
+} & ({
+    completed: false;
+    f_url: undefined;
+} | {
+    completed: true;
+    f_url: string;
+});
+
+export type MessageFileChunk = {
+    type: MessageType['FILE_CHUNK'];
+    i: FileId;
+    n: number;
+    c: string;
 };
 
-export type Message = {
-    ts: string;
-} & (MessageSystem | MessageText | MessageFile | MessageFileTransfer);
+export type MessageFileAbort = {
+    type: MessageType['FILE_ABORT'];
+    i: FileId;
+};
 
-export type MessageType = Message['type'];
+export type ChannelMessage = (MessageText | MessageFileTransfer | MessageFileChunk | MessageFileAbort);
+
+export type ChannelMessageType = ChannelMessage['type'];

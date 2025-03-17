@@ -39,6 +39,7 @@ export default ts.config(
     {
         rules: {
             'no-implicit-any': 'off',
+            '@typescript-eslint/no-explicit-any': 'off',
         }
     }
 );

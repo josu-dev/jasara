@@ -1,4 +1,3 @@
-import {object, z} from 'zod';
 
 // WEBRTC ROOM
 
@@ -12,7 +11,7 @@ type Room = {
     iceCandidates: RTCIceCandidate[];
     created_at?: number;
     updated_at?: number;
-}
+};
 
 const _rooms: Room[] = [];
 
@@ -27,11 +26,15 @@ export async function getRoom(roomId: string): Promise<Room | undefined> {
 
 export async function createRoom(roomId: string): Promise<Room | undefined> {
     let room = await getRoom(roomId);
-    if (room!==undefined && Date.now() - room.created_at! < 2*60*1000) {
-        console.log('Room already exists', await getRoom(roomId));
+    if (room !== undefined && Date.now() - room.created_at! < 1 * 60 * 1000) {
+        console.log('Room already exists', room);
         return undefined;
     }
-
+    
+    if (room !== undefined) {
+        _rooms.splice(_rooms.indexOf(room), 1);
+    }
+    
     room = {
         id: roomId,
         users: [],
@@ -39,9 +42,9 @@ export async function createRoom(roomId: string): Promise<Room | undefined> {
         answer: '',
         iceCandidates: [],
         created_at: Date.now(),
-    }
-    
+    };
+
     _rooms.push(room);
-    
+
     return room;
 }

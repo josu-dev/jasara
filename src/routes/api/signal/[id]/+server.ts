@@ -2,7 +2,7 @@ import { createRoom, getRoom } from '$lib/server/rooms';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { z } from 'zod';
 
-export const GET: RequestHandler = async ({ request, params }) => {
+export const GET: RequestHandler = async ({ params }) => {
 
     if (params.id === undefined) {
         return new Response('Room ID is required', { status: 400 });

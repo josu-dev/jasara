@@ -1,6 +1,6 @@
 <script lang="ts">
 	type Props = {
-		on_send_text: (text: string) => void;
+		on_send_text: (text: string, reset: () => void) => void;
 		on_send_file: (file: File) => void;
 		disabled?: boolean;
 	};
@@ -10,9 +10,13 @@
 	let raw_text = $state('');
 
 	function send_text() {
-		on_send_text(raw_text);
+		on_send_text(raw_text, clear_text);
 		raw_text = '';
 	}
+  
+  function clear_text() {
+    raw_text = '';
+  }
 
 	function textarea_onkeypress(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
