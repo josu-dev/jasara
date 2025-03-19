@@ -19,13 +19,20 @@ export function format_file_size(bytes: number): string {
     return (bytes / (1024 * 1024)).toFixed(1) + ' mb';
 }
 
-export function download_file(url: string, filename: string): void {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+export async function download_file(url: string, filename: string): Promise<void> {
+    const blob = await (await fetch(url)).blob();
+    const blob_url = URL.createObjectURL(blob);
+    try {
+        const a = document.createElement('a');
+        a.href = blob_url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+    finally {
+        URL.revokeObjectURL(blob_url);
+    }
 }
 
 export function assert(condition: boolean, message: string): void {

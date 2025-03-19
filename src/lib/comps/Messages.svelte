@@ -14,12 +14,12 @@
 	let container_el: HTMLElement;
 
 	$effect(() => {
-		messages;
-		container_el.scrollTop = container_el.scrollHeight;
+		messages.length;
+    container_el.scrollTop = container_el.scrollHeight;
 	});
 </script>
 
-<div bind:this={container_el} class="bg-base-200 flex-1 overflow-y-auto p-4">
+<div bind:this={container_el} class="bg-base-200 flex-1 overflow-y-auto overflow-x-clip p-4 scrollbar-themed">
 	{#each messages as msg}
 		<Message
 			{msg}

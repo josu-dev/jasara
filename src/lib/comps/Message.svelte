@@ -27,8 +27,11 @@
 
 <div class="flex items-start gap-2.5">
 	<div
-		class="bg-base-100 shadow-base-100 mb-3 flex max-w-4/5 flex-col px-3 pt-2 pb-1 shadow
-    {msg.sender === 'me' ? 'ml-auto rounded-l-xl rounded-b-xl' : 'rounded-e-xl rounded-es-xl'}"
+		class="bg-base-100 shadow-base-100 relative mb-3 flex max-w-4/5 flex-col px-3 pt-2 pb-1 shadow
+    {msg.sender === 'me'
+			? 'ml-auto rounded-l-xl rounded-b-xl'
+			: 'rounded-e-xl rounded-es-xl after:rounded-e-xl after:rounded-es-xl'}
+    {msg.sender === 'system' ? 'text-yellow-50 italic' : ''}"
 	>
 		{#if msg.sender !== 'me'}
 			<div class="flex justify-between text-sm">

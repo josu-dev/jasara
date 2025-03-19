@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ConnectionStatus } from '$lib/client/p2p.js';
 	import Plus from '@lucide/svelte/icons/plus';
+	import PowerOff from '@lucide/svelte/icons/power-off';
 	import Search from '@lucide/svelte/icons/search';
 	import IconButton from './IconButton.svelte';
 
@@ -33,7 +34,7 @@
 </script>
 
 <div class="">
-	<div class="flex gap-x-2">
+	<div class="flex gap-x-2 items-center">
 		<div class="max-w-64 flex-1">
 			<label for="roomId" class="sr-only">Room ID</label>
 			<input
@@ -41,18 +42,15 @@
 				id="roomId"
 				placeholder="Room ID"
 				bind:value={room_id}
-				class="border-border w-full max-w-md rounded border bg-transparent px-3 py-2 focus:ring-0 focus:outline-none"
+				class="border-border w-full max-w-md rounded border bg-transparent px-2 py-1 focus:ring-0 focus:outline-none"
 			/>
 		</div>
 
 		<div class="flex items-end gap-x-1">
 			{#if connectionStatus === 'Connected'}
-				<button
-					onclick={on_disconnect}
-					class="rounded bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:outline-none"
-				>
-					Disconnect
-				</button>
+				<IconButton onclick={on_disconnect} title="Disconnect" class="bg-red-600/25! hover:bg-red-600/50!">
+					<PowerOff />
+				</IconButton>
 			{:else}
 				<IconButton
 					onclick={() => {

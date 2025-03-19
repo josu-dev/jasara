@@ -3,88 +3,96 @@
 @plugin '@tailwindcss/typography';
 
 @font-face {
-    font-family: 'Roboto';
-    font-style: normal;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url('/fonts/Roboto/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
+	font-family: 'Roboto';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/Roboto/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
 }
 
 @font-face {
-    font-family: 'Roboto';
-    font-style: italic;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url('/fonts/Roboto/Roboto-Italic-VariableFont_wdth,wght.ttf') format('truetype');
+	font-family: 'Roboto';
+	font-style: italic;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/Roboto/Roboto-Italic-VariableFont_wdth,wght.ttf') format('truetype');
 }
 
 @font-face {
-    font-family: 'Roboto-Mono';
-    font-style: normal;
-    font-weight: 100 700;
-    font-display: swap;
-    src: url('/fonts/Roboto_Mono/RobotoMono-VariableFont_wght.ttf') format('truetype');
+	font-family: 'Roboto-Mono';
+	font-style: normal;
+	font-weight: 100 700;
+	font-display: swap;
+	src: url('/fonts/Roboto_Mono/RobotoMono-VariableFont_wght.ttf') format('truetype');
 }
 
 @font-face {
-    font-family: 'Roboto-Mono';
-    font-style: italic;
-    font-weight: 100 700;
-    font-display: swap;
-    src: url('/fonts/Roboto_Mono/RobotoMono-Italic-VariableFont_wght.ttf') format('truetype');
+	font-family: 'Roboto-Mono';
+	font-style: italic;
+	font-weight: 100 700;
+	font-display: swap;
+	src: url('/fonts/Roboto_Mono/RobotoMono-Italic-VariableFont_wght.ttf') format('truetype');
 }
 
 @theme {
-    --font-sans: 'Roboto', sans-serif;
-    --font-mono: 'Roboto-Mono', monospace;
+	--font-sans: 'Roboto', sans-serif;
+	--font-mono: 'Roboto-Mono', monospace;
 
-    --color-base-100: var(--color-neutral-950);
-    --color-base-200: var(--color-neutral-900);
-    --color-base-300: var(--color-neutral-800);
-    --color-base-400: var(--color-neutral-700);
-    --color-base-500: var(--color-neutral-600);
-    --color-base-600: var(--color-neutral-500);
-    --color-base-700: var(--color-neutral-400);
+	--color-base-100: var(--color-neutral-950);
+	--color-base-200: var(--color-neutral-900);
+	--color-base-300: var(--color-neutral-800);
+	--color-base-400: var(--color-neutral-700);
+	--color-base-500: var(--color-neutral-600);
+	--color-base-600: var(--color-neutral-500);
+	--color-base-700: var(--color-neutral-400);
 
-    --color-border: var(--color-neutral-700);
-    --color-border-hover: var(--color-neutral-400);
-    
-    --color-fg-100: var(--color-neutral-100);
-    --color-fg-200: var(--color-neutral-200);
-    --color-fg-300: var(--color-neutral-300);
-    --color-fg-400: var(--color-neutral-400);
+	--color-border: var(--color-neutral-700);
+	--color-border-hover: var(--color-neutral-400);
 
-    --color-primary-50: var(--color-yellow-400);
-    --color-primary-100: var(--color-yellow-500);
-    --color-primary-200: var(--color-neutral-100);
+	--color-fg-100: var(--color-neutral-100);
+	--color-fg-200: var(--color-neutral-200);
+	--color-fg-300: var(--color-neutral-300);
+	--color-fg-400: var(--color-neutral-400);
+
+	--color-primary-50: var(--color-yellow-400);
+	--color-primary-100: var(--color-yellow-500);
+	--color-primary-200: var(--color-neutral-100);
 }
 
 @layer base {
-    html, body {
-        @apply h-full;
-    }
-    
-    body {
-        @apply text-white;
-    }
+	html,
+	body {
+		@apply h-full;
+	}
+
+	body {
+		@apply overflow-hidden text-white;
+	}
 }
 
 @layer components {
-    .link {
-        color: var(--color-sky-500);
-        text-decoration: underline;
-        text-underline-offset: 1px;
+	.link {
+		color: var(--color-sky-500);
+		text-decoration: underline;
+		text-underline-offset: 1px;
 
-        &:hover {
-            text-underline-offset: 2px;
-        }
-    }
+		&:hover {
+			text-underline-offset: 2px;
+		}
+	}
 
-    .code-block {
-        scrollbar-color:var(--color-fg-100) transparent;
-        scrollbar-width:thin;
-        max-width: calc(100%+var(--spacing) * -1);
-        overflow-x: auto;
-        @apply bg-base-200 rounded px-2 py-2.5 -mx-1;
+	.code-block {
+		scrollbar-color: var(--color-fg-100) transparent;
+		scrollbar-width: thin;
+		max-width: calc(100%+var(--spacing) * -1);
+		overflow-x: auto;
+		font-size: var(--text-sm);
+		line-height: var(calc(var(--spacing) * 5));
+		@apply bg-base-200 -mx-1 rounded px-2 py-2.5;
+	}
+
+    .scrollbar-themed {
+        scrollbar-color: var(--color-fg-100) transparent;
+		scrollbar-width: thin;
     }
 }

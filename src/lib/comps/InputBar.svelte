@@ -32,7 +32,7 @@
 	}
 </script>
 
-<div class="bg-base-100 border-border border-t p-3">
+<div class="bg-base-100 border-border border-t px-3 py-2">
 	<div class="flex items-end">
 		<label
 			for="fileInput"
@@ -71,7 +71,7 @@
 				}}
 				oninput={(ev) => (ev.currentTarget.parentElement!.dataset.text = ev.currentTarget.value)}
 				{disabled}
-				class=" w-full resize-none overflow-x-hidden overflow-y-auto border-none bg-transparent px-2 py-2 [scrollbar-color:var(--color-fg-100)_transparent] [scrollbar-width:thin] focus:ring-0 focus:outline-none"
+				class=" w-full resize-none overflow-x-hidden overflow-y-auto border-none bg-transparent px-2 py-2 scrollbar-themed focus:ring-0 focus:outline-none"
 			></textarea>
 		</div>
 

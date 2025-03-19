@@ -25,8 +25,10 @@ export type ConnectionStatus = typeof connectionStatus[keyof typeof connectionSt
 let peer_connection: RTCPeerConnection | undefined = undefined;
 let data_channel: RTCDataChannel | undefined = undefined;
 let room_id = '';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let is_host = false;
 let connection_status: ConnectionStatus = connectionStatus.None;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let error_message = '';
 let on_conn_state_change: (status: ConnectionStatus) => void = () => { };
 let on_system_message: (msg: MessageText) => void = () => { };
@@ -95,8 +97,7 @@ function on_data_channel_message(event: MessageEvent) {
     }
 
     const msg = value as ChannelMessage;
-    console.log('Received message:', msg);
-    // on_channel_message(msg);
+
     switch (msg.type) {
         case MESSAGE_TYPE.TEXT: {
             if (msg.sender !== 'system') {
@@ -115,7 +116,7 @@ function on_data_channel_message(event: MessageEvent) {
                 f_size: msg.f_size,
                 f_id: msg.f_id,
                 f_name: msg.f_name,
-                f_url: '',
+                f_url: undefined,
                 ts_start: '',
                 ts_end: '',
                 progress: 0,
@@ -138,13 +139,13 @@ function on_data_channel_message(event: MessageEvent) {
                 console.log('File transfer not found:', msg);
                 return;
             }
+
             transfer.chunks[msg.n] = msg.c;
             transfer.chunks_received++;
             const progress = Math.floor((transfer.chunks_received / transfer.chunks.length) * 100);
             // transfer.msg.progress = progress;
             if (transfer.chunks_received === transfer.chunks.length) {
-                const f_as_base64 = `data:${transfer.type};base64,${transfer.chunks.join('')}`;
-                console.log('File received:', f_as_base64);
+                const f_as_base64 = transfer.chunks.join('');
                 transfer.f_url = f_as_base64;
                 transfer.ts_end = new Date().toISOString();
                 transfer.completed = true;
@@ -165,6 +166,7 @@ function on_data_channel_message(event: MessageEvent) {
                 console.log('File transfer to abort not found:', msg);
                 return;
             }
+
             transfer.aborted = true;
             transfer.aborted = true;
             transfer.progress = -1;
@@ -195,41 +197,17 @@ function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
         }
     };
 
-    // peer_connection.onconnectionstatechange = function (event) {
-    //     console.log('peer_connection state change:', event);
-    //     switch (this.connectionState) {
-    //         case 'connected':
-    //             connection_status = connectionStatus.Connected;
-    //             break;
-    //         case 'disconnected':
-    //         case 'failed':
-    //             connection_status = connectionStatus.Disconnected;
-    //             break;
-    //         case 'closed':
-    //             connection_status = connectionStatus.Disconnected;
-    //             break;
-    //         case 'new':
-    //             break;
-    //         case 'connecting':
-    //             connection_status = connectionStatus.Connecting;
-    //     }
-    //     // connection_status = `Connection: ${this.connectionState}`;
-    //     // if (peer_connection.connectionState === 'connected') {
-    //     //     connection_status = 'Connected successfully!';
-    //     // }
-    // };
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     peer_connection.onconnectionstatechange = (event) => {
         // TODO: improve this
         switch (peer_connection!.connectionState) {
             case 'connected':
-                console.log('Connection established');
-                // clearInterval(intervalId);
                 on_conn_state_change(connectionStatus.Connected);
+                on_system_message(create_text_message(`Connected to room '${room_id}'`, "system"));
                 break;
             case 'disconnected':
                 on_conn_state_change(connectionStatus.Disconnected);
-                // clearInterval(intervalId);
+                on_system_message(create_text_message(`Disconnected from room '${room_id}'`, "system"));
                 break;
             case 'failed':
             case 'closed':
@@ -238,7 +216,6 @@ function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
                 on_conn_state_change(connectionStatus.None);
                 break;
             case 'connecting':
-                // clearInterval(intervalId);
                 on_conn_state_change(connectionStatus.Connecting);
                 break;
         }
@@ -413,7 +390,6 @@ async function pollForIceCandidates(id: RoomId,) {
                 const {
                     data: { iceCandidates }
                 } = await response.json();
-                console.log('Received ICE candidates:', iceCandidates);
                 for (const candidate of iceCandidates) {
                     await peer_connection.addIceCandidate(new RTCIceCandidate(candidate));
                     lastCandidateId = candidate.id;
@@ -431,7 +407,6 @@ async function pollForIceCandidates(id: RoomId,) {
 function _send_channel_msg(msg: ChannelMessage) {
     assert_exists(data_channel, 'Data channel not initialized or closed');
     data_channel.send(JSON.stringify(msg));
-    console.log('_send_channel_msg:', msg);
 }
 
 export function create_text_message<T extends string = string>(text: string, sender: T = 'me' as T): MessageText<T> {
@@ -449,9 +424,7 @@ export function send_text(msg: MessageText): boolean {
         return false;
     }
 
-    console.log('send_text 1:', msg);
     _send_channel_msg(msg);
-    console.log('send_text 2:', msg);
     return true;
 }
 
@@ -465,7 +438,7 @@ export function create_file_message(file: File, sender: string = "me"): MessageF
         f_name: file.name,
         f_size: file.size,
         f_type: file.type,
-        f_url: '',
+        f_url: undefined,
         chunks_total: 0,
         progress: 0,
         aborted: false,
@@ -473,10 +446,18 @@ export function create_file_message(file: File, sender: string = "me"): MessageF
     };
 }
 
+async function file_to_data_url(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject;
+        reader.readAsDataURL(file);
+    });
+}
+
 export async function send_file(msg: MessageFileTransfer, file: File): Promise<boolean> {
     assert_channel_ready(data_channel);
-
-    const f_as_base64 = window.btoa(await file.text());
+    const f_as_base64 = await file_to_data_url(file);
     const chunks_total = Math.ceil(f_as_base64.length / CHUNK_SIZE);
 
     msg.chunks_total = chunks_total;
@@ -598,326 +579,10 @@ export async function cleanup() {
 
     connection_status = connectionStatus.Disconnected;
     on_conn_state_change(connection_status);
+    on_system_message(create_text_message(`Disconnected from room '${room_id}'`, "system"));
 }
 
 // Handle disconnect
 export async function disconnect() {
     cleanup();
 }
-
-
-// async function _send_file(id: FileId, file: File) {
-//     try {
-//         // Convert file to array buffer
-//         const arrayBuffer = await file.arrayBuffer();
-//         const base64Data = arrayBufferToBase64(arrayBuffer);
-
-//         // Calculate total chunks
-//         const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
-
-//         // Send file start message
-//         const fileStartMessage = {
-//             type: 'file-start',
-//             fileId: id,
-//             filename: file.name,
-//             fileType: file.type,
-//             fileSize: file.size,
-//             totalChunks: totalChunks
-//         };
-
-//         data_channel.send(JSON.stringify(fileStartMessage));
-
-//         // Create a message queue
-//         const messageQueue: MessageFileChunk[] = [];
-
-//         // Prepare all chunks
-//         for (let i = 0; i < totalChunks; i++) {
-//             const chunk = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-//             messageQueue.push({
-//                 type: MESSAGE_TYPE.FILE_CHUNK,
-//                 f_id: id,
-//                 index: i,
-//                 chunk: chunk
-//             });
-//         }
-
-//         let isPaused = false;
-//         let currentChunkIndex = 0;
-
-//         // Function to continue sending chunks
-//         const sendNextChunks = () => {
-//             // If paused, do nothing (will be resumed by bufferedamountlow event)
-//             if (isPaused) return;
-//             assert_exists(data_channel, 'Data channel not initialized or closed');
-
-//             // Send chunks until buffer gets full or we run out of chunks
-//             while (currentChunkIndex < messageQueue.length) {
-//                 // Check if buffer is getting full
-//                 if (data_channel.bufferedAmount > BUFFER_FULL_THRESHOLD) {
-//                     isPaused = true;
-//                     console.log('Buffer full, pausing transmission');
-
-//                     // Set up event listener to resume when buffer is low
-//                     const bufferLowHandler = () => {
-//                         if (data_channel!.bufferedAmount <= BUFFER_LOW_THRESHOLD) {
-//                             console.log('Buffer decreased, resuming transmission');
-//                             data_channel!.removeEventListener('bufferedamountlow', bufferLowHandler);
-//                             isPaused = false;
-//                             setTimeout(sendNextChunks, 0);
-//                         }
-//                     };
-
-//                     // Set bufferedamountlow threshold and add event listener
-//                     data_channel.bufferedAmountLowThreshold = BUFFER_LOW_THRESHOLD;
-//                     data_channel.addEventListener('bufferedamountlow', bufferLowHandler);
-//                     return;
-//                 }
-
-//                 // Send the next chunk
-//                 const chunkMessage = messageQueue[currentChunkIndex];
-//                 data_channel.send(JSON.stringify(chunkMessage));
-
-//                 // Update progress
-//                 currentChunkIndex++;
-//                 const progress = Math.floor((currentChunkIndex / totalChunks) * 100);
-//                 on_file_update(id, progress);
-
-//                 // Add a small yield every 10 chunks to prevent UI freezing
-//                 if (currentChunkIndex % 10 === 0) {
-//                     setTimeout(sendNextChunks, 0);
-//                     return;
-//                 }
-//             }
-
-//             // All chunks sent, update message
-//             if (currentChunkIndex >= messageQueue.length) {
-//                 // Update message now that file is complete
-//                 messages = messages.map((msg) => {
-//                     if (msg.type === 'file-transfer' && msg.f_id === fileId) {
-//                         return {
-//                             type: 'file',
-//                             sender: msg.sender,
-//                             f_name: file.name,
-//                             f_size: file.size,
-//                             timestamp: msg.timestamp,
-//                             f_url: `data:${file.type};base64,${base64Data}`
-//                         };
-//                     }
-//                     return msg;
-//                 });
-
-//                 addSystemMessage(`File "${file.name}" sent successfully`);
-//                 isTransferringFile = false;
-//                 fileInput.value = '';
-//             }
-//         };
-
-//         // Start sending chunks
-//         sendNextChunks();
-//     } catch (error) {
-//         console.error('File transfer error:', error);
-//         errorMessage = `File transfer failed: ${error.message || 'Unknown error'}`;
-
-//         // Let peer know the transfer was aborted
-//         data_channel.send(
-//             JSON.stringify({
-//                 type: 'file-abort',
-//                 fileId: id
-//             })
-//         );
-
-//         // Update message to show error
-//         messages = messages.map((msg) => {
-//             if (msg.type === 'file-transfer' && msg.f_id === fileId) {
-//                 return { ...msg, aborted: true, progress: -1 };
-//             }
-//             return msg;
-//         });
-
-//         isTransferringFile = false;
-//         fileInput.value = '';
-//     }
-// }
-// // Send a file in chunks
-// async function sendFile() {
-//     const fileInput = document.getElementById('fileInput');
-//     if (!fileInput || !fileInput.files || !fileInput.files.length) {
-//         errorMessage = 'Please select a file first';
-//         return;
-//     }
-
-//     if (!data_channel || data_channel.readyState !== 'open') {
-//         errorMessage = 'Connection not established';
-//         return;
-//     }
-
-//     if (isTransferringFile) {
-//         errorMessage = 'Already transferring a file, please wait';
-//         return;
-//     }
-
-//     errorMessage = ''; // Clear any previous errors
-//     const file = fileInput.files[0];
-
-//     // if (file.size > MAX_FILE_SIZE) {
-//     // 	errorMessage = `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`;
-//     // 	return;
-//     // }
-
-//     isTransferringFile = true;
-//     fileSendProgress = 0;
-
-//     // Generate a unique ID for this file transfer
-//     const fileId = Date.now().toString();
-
-//     // Add a placeholder message for file transfer progress
-//     messages = [
-//         ...messages,
-//         {
-//             type: 'file-transfer',
-//             f_id: fileId,
-//             sender: 'me',
-//             f_name: file.name,
-//             f_size: file.size,
-//             progress: 0,
-//             timestamp: new Date().toISOString()
-//         }
-//     ];
-
-//     try {
-//         // Convert file to array buffer
-//         const arrayBuffer = await file.arrayBuffer();
-//         const base64Data = arrayBufferToBase64(arrayBuffer);
-
-//         // Calculate total chunks
-//         const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
-
-//         // Send file start message
-//         const fileStartMessage = {
-//             type: 'file-start',
-//             fileId: fileId,
-//             filename: file.name,
-//             fileType: file.type,
-//             fileSize: file.size,
-//             totalChunks: totalChunks
-//         };
-
-//         data_channel.send(JSON.stringify(fileStartMessage));
-
-//         // Create a message queue
-//         const messageQueue = [];
-
-//         // Prepare all chunks
-//         for (let i = 0; i < totalChunks; i++) {
-//             const chunk = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-//             messageQueue.push({
-//                 type: 'file-chunk',
-//                 fileId: fileId,
-//                 chunkIndex: i,
-//                 chunk: chunk
-//             });
-//         }
-
-//         let isPaused = false;
-//         let currentChunkIndex = 0;
-
-//         // Function to continue sending chunks
-//         const sendNextChunks = () => {
-//             // If paused, do nothing (will be resumed by bufferedamountlow event)
-//             if (isPaused) return;
-
-//             // Send chunks until buffer gets full or we run out of chunks
-//             while (currentChunkIndex < messageQueue.length) {
-//                 // Check if buffer is getting full
-//                 if (data_channel.bufferedAmount > BUFFER_FULL_THRESHOLD) {
-//                     isPaused = true;
-//                     console.log('Buffer full, pausing transmission');
-
-//                     // Set up event listener to resume when buffer is low
-//                     const bufferLowHandler = () => {
-//                         if (data_channel.bufferedAmount <= BUFFER_LOW_THRESHOLD) {
-//                             console.log('Buffer decreased, resuming transmission');
-//                             data_channel.removeEventListener('bufferedamountlow', bufferLowHandler);
-//                             isPaused = false;
-//                             setTimeout(sendNextChunks, 0);
-//                         }
-//                     };
-
-//                     // Set bufferedamountlow threshold and add event listener
-//                     data_channel.bufferedAmountLowThreshold = BUFFER_LOW_THRESHOLD;
-//                     data_channel.addEventListener('bufferedamountlow', bufferLowHandler);
-//                     return;
-//                 }
-
-//                 // Send the next chunk
-//                 const chunkMessage = messageQueue[currentChunkIndex];
-//                 data_channel.send(JSON.stringify(chunkMessage));
-
-//                 // Update progress
-//                 currentChunkIndex++;
-//                 fileSendProgress = Math.floor((currentChunkIndex / totalChunks) * 100);
-
-//                 // Update message with progress
-//                 messages = messages.map((msg) => {
-//                     if (msg.type === 'file-transfer' && msg.f_id === fileId) {
-//                         return { ...msg, progress: fileSendProgress };
-//                     }
-//                     return msg;
-//                 });
-
-//                 // Add a small yield every 10 chunks to prevent UI freezing
-//                 if (currentChunkIndex % 10 === 0) {
-//                     setTimeout(sendNextChunks, 0);
-//                     return;
-//                 }
-//             }
-
-//             // All chunks sent, update message
-//             if (currentChunkIndex >= messageQueue.length) {
-//                 // Update message now that file is complete
-//                 messages = messages.map((msg) => {
-//                     if (msg.type === 'file-transfer' && msg.f_id === fileId) {
-//                         return {
-//                             type: 'file',
-//                             sender: msg.sender,
-//                             f_name: file.name,
-//                             f_size: file.size,
-//                             timestamp: msg.timestamp,
-//                             f_url: `data:${file.type};base64,${base64Data}`
-//                         };
-//                     }
-//                     return msg;
-//                 });
-
-//                 addSystemMessage(`File "${file.name}" sent successfully`);
-//                 isTransferringFile = false;
-//                 fileInput.value = '';
-//             }
-//         };
-
-//         // Start sending chunks
-//         sendNextChunks();
-//     } catch (error) {
-//         console.error('File transfer error:', error);
-//         errorMessage = `File transfer failed: ${error.message || 'Unknown error'}`;
-
-//         // Let peer know the transfer was aborted
-//         data_channel.send(
-//             JSON.stringify({
-//                 type: 'file-abort',
-//                 fileId: fileId
-//             })
-//         );
-
-//         // Update message to show error
-//         messages = messages.map((msg) => {
-//             if (msg.type === 'file-transfer' && msg.f_id === fileId) {
-//                 return { ...msg, aborted: true, progress: -1 };
-//             }
-//             return msg;
-//         });
-
-//         isTransferringFile = false;
-//         fileInput.value = '';
-//     }
-// }

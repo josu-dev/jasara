@@ -151,7 +151,6 @@
 
 	function on_conn_state_change(status: p2p.ConnectionStatus): void {
 		connectionStatus = status;
-		console.log('xss', status);
 	}
 
 	function update_file(m: MessageFileTransfer) {
@@ -172,9 +171,13 @@
 	});
 </script>
 
-<main class="mx-auto flex h-full max-w-3xl flex-col p-4 font-sans">
-	<div class="flex flex-none justify-between">
-		<h1 class="mb-4 text-center text-4xl font-extrabold tracking-wider">JASARA</h1>
+<main
+	class="mx-auto grid h-full max-w-3xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden px-1 pb-1 font-sans sm:px-4 sm:pb-4"
+>
+	<div class="flex flex-none justify-between px-1 py-1 sm:py-2">
+		<h1 class="text-primary-100 self-center text-4xl leading-none font-extrabold tracking-wider">
+			JASARA
+		</h1>
 
 		<ConnectionBar
 			connection_status={connectionStatus as any}
@@ -201,7 +204,7 @@
 		/>
 	</div>
 
-	<div class="border-border flex flex-1 flex-col overflow-clip rounded-md border">
+	<div class="border-border flex h-full flex-col overflow-hidden rounded-md border">
 		<Messages
 			messages={messages as RenderableMessage[]}
 			{isHost}
