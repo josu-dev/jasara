@@ -51,3 +51,5 @@ export type MessageFileAbort = {
 export type ChannelMessage = (MessageText | MessageFileTransfer | MessageFileChunk | MessageFileAbort);
 
 export type ChannelMessageType = ChannelMessage['type'];
+
+export type RenderableMessage = (MessageText | MessageFileTransfer);

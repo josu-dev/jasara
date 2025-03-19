@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Message from '$lib/comps/Message.svelte';
-	import type { ChannelMessage as MessageData } from '$lib/types/types';
+	import type { RenderableMessage } from '$lib/types/types';
 
 	type Props = {
-		messages: MessageData[];
+		messages: RenderableMessage[];
 		isHost: boolean;
 		cancel_file_transfer: (id: string) => void;
 		download_file: (url: string, filename: string) => void;
@@ -19,7 +19,7 @@
 	});
 </script>
 
-<div bind:this={container_el} class="messages-container flex-1 overflow-y-auto bg-gray-50 p-4">
+<div bind:this={container_el} class="bg-base-200 flex-1 overflow-y-auto p-4">
 	{#each messages as msg}
 		<Message
 			{msg}

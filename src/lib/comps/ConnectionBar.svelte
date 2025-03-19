@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { ConnectionStatus } from '$lib/client/p2p.js';
-	import Activity from '@lucide/svelte/icons/activity';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
+	import IconButton from './IconButton.svelte';
 
 	type Props = {
 		connection_status: ConnectionStatus;
@@ -21,30 +21,31 @@
 	}: Props = $props();
 
 	let room_id = $state('');
-  
-  const connectionStatusToLabel = {
-    Disconnected: 'Disconnected',
-    TimedOut: 'Connection timed out',
-    Connecting: 'Connecting...',
-    Creating: 'Creating room...',
-    Connected: 'Connected successfully!',
-    None: 'None'
-} as const;
+
+	const connectionStatusToLabel = {
+		Disconnected: 'Disconnected',
+		TimedOut: 'Connection timed out',
+		Connecting: 'Connecting...',
+		Creating: 'Creating room...',
+		Connected: 'Connected successfully!',
+		None: 'None'
+	} as const;
 </script>
 
-<div class="mb-6 rounded-lg">
-	<div class="flex gap-x-4">
-		<div class="mb-4 max-w-64 flex-1">
-			<label for="roomId" class="mb-1 block font-medium">Room ID</label>
+<div class="">
+	<div class="flex gap-x-2">
+		<div class="max-w-64 flex-1">
+			<label for="roomId" class="sr-only">Room ID</label>
 			<input
 				type="text"
 				id="roomId"
+				placeholder="Room ID"
 				bind:value={room_id}
-				class="w-full max-w-md rounded border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+				class="border-border w-full max-w-md rounded border bg-transparent px-3 py-2 focus:ring-0 focus:outline-none"
 			/>
 		</div>
 
-		<div class="mb-4 flex items-end gap-x-2">
+		<div class="flex items-end gap-x-1">
 			{#if connectionStatus === 'Connected'}
 				<button
 					onclick={on_disconnect}
@@ -53,36 +54,23 @@
 					Disconnect
 				</button>
 			{:else}
-				<button
+				<IconButton
 					onclick={() => {
 						on_create(room_id);
 					}}
-					class="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					title="Create"
 				>
-					<span class="sr-only">Create</span>
 					<Plus />
-				</button>
-				<button
+				</IconButton>
+				<IconButton
 					onclick={() => {
 						on_connect(room_id);
 					}}
-					class="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					title="Join"
 				>
-					<span class="sr-only">Join</span>
 					<Search />
-				</button>
+				</IconButton>
 			{/if}
 		</div>
-	</div>
-
-	<div>
-		<p class="text-gray-700">
-			<span class="sr-only">Status:</span>
-			<Activity class="inline-block size-6" />
-			<span class="align-middle font-medium">{connectionStatus}</span>
-		</p>
-		{#if connection_error}
-			<p class="mt-1 font-medium text-red-600">{connection_error}</p>
-		{/if}
 	</div>
 </div>

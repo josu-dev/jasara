@@ -1,124 +1,113 @@
 <script lang="ts">
 	import { MESSAGE_TYPE } from '$lib/client/p2p';
-	import type { ChannelMessage } from '$lib/types/types';
-	import { format_file_size, format_hs_mm } from '$lib/utils';
+	import type { RenderableMessage } from '$lib/types/types';
+	import {
+		ensure_protocol,
+		format_file_size,
+		format_hs_mm,
+		get_codeblock_content,
+		is_codeblock,
+		is_like_link
+	} from '$lib/utils';
+	import CircleOff from '@lucide/svelte/icons/circle-off';
+	import File from '@lucide/svelte/icons/file';
+	import SquareArrowDown from '@lucide/svelte/icons/square-arrow-down';
+	import SquareX from '@lucide/svelte/icons/square-x';
+	import IconButton from './IconButton.svelte';
 
 	type Props = {
-		msg: ChannelMessage;
+		msg: RenderableMessage;
 		isHost: boolean;
-		on_cancel_file: (fileId: string) => void;
-		on_download_file: (fileData: string, filename: string) => void;
+		on_cancel_file: (file_id: string) => void;
+		on_download_file: (file_url: string, file_name: string) => void;
 	};
 
-	let { msg, isHost, on_cancel_file, on_download_file }: Props = $props();
+	let { msg, on_cancel_file, on_download_file }: Props = $props();
 </script>
 
-{#if msg.type === MESSAGE_TYPE.TEXT}
-	{#if msg.sender === 'system'}
-		<div class="mx-auto my-1 max-w-full px-3 py-2 text-center text-sm text-gray-500 italic">
-			{msg.text}
-		</div>
-	{:else}
-		<div
-			class="mb-3 rounded-lg px-4 py-3 {msg.sender === 'me'
-				? 'ml-auto bg-blue-100'
-				: 'bg-green-100'} max-w-[80%]"
-		>
-			<div class="mb-1 flex justify-between text-sm">
-				<span class="font-medium {msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}">
+<div class="flex items-start gap-2.5">
+	<div
+		class="bg-base-100 shadow-base-100 mb-3 flex max-w-4/5 flex-col px-3 pt-2 pb-1 shadow
+    {msg.sender === 'me' ? 'ml-auto rounded-l-xl rounded-b-xl' : 'rounded-e-xl rounded-es-xl'}"
+	>
+		{#if msg.sender !== 'me'}
+			<div class="flex justify-between text-sm">
+				<span class="text-primary-100 font-medium">
 					{msg.sender}
 				</span>
-				<span class="text-gray-500">{format_hs_mm(msg.ts)}</span>
 			</div>
-			<div>{msg.text}</div>
-		</div>
-	{/if}
-{:else if msg.type === MESSAGE_TYPE.FILE_TRANSFER}
-	{#if !msg.completed}
-		<div
-			class="mb-3 rounded-lg px-4 py-3 {msg.sender === 'me'
-				? 'ml-auto bg-blue-100'
-				: 'bg-green-100'} max-w-[80%]"
-		>
-			<div class="mb-1 flex justify-between text-sm">
-				<span class="font-medium {msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}">
-					{msg.sender}
-				</span>
-				<span class="text-gray-500">{format_hs_mm(msg.ts)}</span>
+		{/if}
+		{#if msg.type === MESSAGE_TYPE.TEXT}
+			<div class="py-1 text-sm whitespace-break-spaces">
+				{#if is_like_link(msg.text)}
+					<a href={ensure_protocol(msg.text)} rel="refferer,noopener" class="link">{msg.text}</a>
+				{:else if is_codeblock(msg.text)}
+					<pre class="code-block"><code>{get_codeblock_content(msg.text)}</code></pre>
+				{:else}
+					<p class="">{msg.text}</p>
+				{/if}
 			</div>
-			<div class="mb-1 flex items-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-5 w-5 {msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-				>
-					<path
-						fill-rule="evenodd"
-						d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				<span class={msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}>{msg.f_name}</span>
-				<span class="ml-1 text-gray-500">({format_file_size(msg.f_size)})</span>
-			</div>
-			{#if msg.aborted}
-				<div class="text-sm text-red-500">Transfer aborted</div>
-			{:else}
-				<div class="h-2.5 w-full rounded-full bg-gray-200">
-					<div class="h-2.5 rounded-full bg-blue-600" style="width: {msg.progress}%"></div>
-				</div>
-				<div class="mt-1 flex justify-between text-xs text-gray-600">
-					<span>{msg.progress}% complete</span>
-					{#if msg.sender === 'me' && msg.progress < 100}
-						<button
-							onclick={() => on_cancel_file(msg.f_id)}
-							class="text-red-500 hover:text-red-700"
-						>
-							Cancel
-						</button>
+		{:else if msg.type === MESSAGE_TYPE.FILE_TRANSFER}
+			<div class="-mx-1 min-w-64 py-1 sm:min-w-96">
+				<div class="flex rounded p-2 {msg.aborted ? 'bg-red-600/10' : 'bg-base-200'}">
+					<div class="grid">
+						<File class="size-10 stroke-1" />
+					</div>
+					<div class="mx-2">
+						<div>
+							<span class="flex items-center gap-2 text-sm font-normal">
+								{msg.f_name}{#if msg.aborted}
+									<span class="text-base-700 text-xs">(aborted)</span>
+								{/if}
+							</span>
+						</div>
+						<div class="text-base-700 flex gap-x-2 py-1 text-xs font-normal">
+							{#if msg.f_type}
+								<span>{msg.f_type}</span>
+							{/if}
+							<span>{format_file_size(msg.f_size)}</span>
+						</div>
+					</div>
+					{#if msg.completed}
+						<div class="ml-auto">
+							<IconButton
+								onclick={() => {
+									on_download_file(msg.f_url, msg.f_name);
+								}}
+								title="Download file"
+							>
+								<SquareArrowDown class="size-8 stroke-1" />
+							</IconButton>
+						</div>
+					{:else if msg.aborted}
+						<div class="ml-auto">
+							<div class="grid size-11 place-items-center">
+								<CircleOff class="size-7 stroke-1" />
+							</div>
+						</div>
+					{:else if msg.progress < 100}
+						<div class="ml-auto">
+							<IconButton
+								onclick={() => {
+									on_cancel_file(msg.f_id);
+								}}
+								title="Cancel file"
+							>
+								<SquareX class="size-8 stroke-1" />
+							</IconButton>
+						</div>
 					{/if}
 				</div>
-			{/if}
-		</div>
-	{:else}
-		<div
-			class="mb-3 rounded-lg px-4 py-3 {msg.sender === 'me'
-				? 'ml-auto bg-blue-100'
-				: 'bg-green-100'} max-w-[80%]"
-		>
-			<div class="mb-1 flex justify-between text-sm">
-				<span class="font-medium {msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}">
-					{msg.sender}
-				</span>
-				<span class="text-gray-500">{format_hs_mm(msg.ts)}</span>
-			</div>
-			<div class="flex items-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mr-1 h-5 w-5 {msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}"
-					viewBox="0 0 20 20"
-					fill="currentColor"
-				>
-					<path
-						fill-rule="evenodd"
-						d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-				<span class={msg.sender === 'me' ? 'text-blue-700' : 'text-green-700'}>{msg.f_name}</span>
-				{#if msg.f_size}
-					<span class="ml-1 text-gray-500">({format_file_size(msg.f_size)})</span>
+				{#if !(msg.completed || msg.aborted)}
+					<div class="bg-base-700 my-1 h-0.5 w-full rounded">
+						<div class="bg-primary-100 h-0.5" style="width: {msg.progress}%"></div>
+					</div>
+					<div class="text-base-700 mt-1 ml-1 flex justify-between text-xs">
+						<span>{msg.progress}% complete</span>
+					</div>
 				{/if}
-				<button
-					onclick={() => {
-						on_download_file(msg.f_url, msg.f_name);
-					}}
-					class="ml-2 rounded bg-gray-200 px-2 py-1 text-xs hover:bg-gray-300"
-				>
-					Download
-				</button>
 			</div>
-		</div>
-	{/if}
-{/if}
+		{/if}
+		<span class="text-base-700 ml-auto text-xs">{format_hs_mm(msg.ts)}</span>
+	</div>
+</div>

@@ -1,7 +1,12 @@
-
 export function format_hs_mm(ts: string): string {
     const date = new Date(ts);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Extract hours and minutes
+    const hours = String(date.getHours()).padStart(2, '0'); // Ensure 2 digits
+    const minutes = String(date.getMinutes()).padStart(2, '0'); // Ensure 2 digits
+
+    // Return in HH:MM format
+    return `${hours}:${minutes}`;
 }
 
 export function format_file_size(bytes: number): string {
@@ -33,4 +38,27 @@ export function assert_exists<T>(value: T, message: string): asserts value is No
     if (value == null) {
         throw new Error(message);
     }
+}
+
+export function is_codeblock(text: string): boolean {
+    const pattern = /^\s*```[\s\S]*?```\s*$/;
+    return pattern.test(text);
+}
+
+export function get_codeblock_content(text: string): string {
+    const pattern = /^\s*```([\s\S]*?)```\s*$/;
+    const match = text.match(pattern);
+    return match ? match[1].trim() : '';
+}
+
+export function is_like_link(text: string): boolean {
+    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- ./?%&=]*)?$/i;
+    return urlPattern.test(text);
+}
+
+export function ensure_protocol(link: string): string {
+    if (/^https?:\/\//i.test(link)) {
+        return link;
+    }
+    return `https://${link}`;
 }

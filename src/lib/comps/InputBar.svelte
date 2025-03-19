@@ -1,4 +1,8 @@
 <script lang="ts">
+	import Paperclip from '@lucide/svelte/icons/paperclip';
+	import SendHorizontal from '@lucide/svelte/icons/send-horizontal';
+	import IconButton from './IconButton.svelte';
+
 	type Props = {
 		on_send_text: (text: string, reset: () => void) => void;
 		on_send_file: (file: File) => void;
@@ -13,62 +17,66 @@
 		on_send_text(raw_text, clear_text);
 		raw_text = '';
 	}
-  
-  function clear_text() {
-    raw_text = '';
-  }
 
-	function textarea_onkeypress(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			send_text();
-		}
+	function clear_text() {
+		raw_text = '';
 	}
 
-	function send_file() {
-		const fileInput = document.getElementById('fileInput') as HTMLInputElement;
-		if (fileInput.files && fileInput.files.length > 0) {
-			const file = fileInput.files[0];
-			on_send_file(file);
+	function on_input(files: FileList | null) {
+		if (files == null || files.length === 0) {
+			return;
 		}
+
+		const file = files[0];
+		on_send_file(file);
 	}
 </script>
 
-<div class="border-t border-gray-300 bg-gray-100 p-3">
-	<div class="mb-2 flex">
-		<textarea
-			bind:value={raw_text}
-			onkeypress={textarea_onkeypress}
-			placeholder="Message"
-			{disabled}
-			class="h-16 flex-1 resize-none rounded-l-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-		></textarea>
-		<button
-			onclick={send_text}
-			{disabled}
-			class="rounded-r-lg bg-blue-600 px-4 font-medium text-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-400"
+<div class="bg-base-100 border-border border-t p-3">
+	<div class="flex items-end">
+		<label
+			for="fileInput"
+			title="Attach file"
+			class="hover:bg-base-300 grid size-11 cursor-pointer place-items-center rounded-full"
 		>
-			Send
-		</button>
-	</div>
+			<span class="sr-only">Attach file</span>
+			<Paperclip />
+			<input
+				type="file"
+				id="fileInput"
+				{disabled}
+				class="hidden"
+				oninput={(ev) => {
+					on_input(ev.currentTarget.files);
+				}}
+			/>
+		</label>
 
-	<div class="flex items-center">
-		<input type="file" id="fileInput" {disabled} class="flex-1" />
-		<button
-			onclick={send_file}
-			{disabled}
-			class="rounded bg-gray-600 px-4 py-2 font-medium text-white focus:ring-2 focus:ring-gray-500 focus:outline-none disabled:bg-gray-400"
+		<div
+			class="grid flex-1 text-sm
+    after:invisible after:max-h-[5lh] after:min-h-[1lh] after:border after:px-3.5 after:py-2.5 after:whitespace-pre-wrap after:text-inherit
+    after:content-[attr(data-text)_'_'] after:[grid-area:1/1/2/2] [&>textarea]:[grid-area:1/1/2/2]"
 		>
-			Upload
-		</button>
-	</div>
-
-	<!-- {#if isTransferringFile}
-		<div class="mt-2">
-			<div class="mb-1 text-sm">Sending file: {fileSendProgress}% complete</div>
-			<div class="h-2.5 w-full rounded-full bg-gray-200">
-				<div class="h-2.5 rounded-full bg-blue-600" style="width: {fileSendProgress}%"></div>
-			</div>
+			<textarea
+				spellcheck="true"
+				placeholder="Message"
+				rows="1"
+				bind:value={raw_text}
+				onkeypress={(ev) => {
+					if (ev.key === 'Enter' && !ev.shiftKey) {
+						ev.preventDefault();
+						send_text();
+						ev.currentTarget.parentElement!.dataset.text = '';
+					}
+				}}
+				oninput={(ev) => (ev.currentTarget.parentElement!.dataset.text = ev.currentTarget.value)}
+				{disabled}
+				class=" w-full resize-none overflow-x-hidden overflow-y-auto border-none bg-transparent px-2 py-2 [scrollbar-color:var(--color-fg-100)_transparent] [scrollbar-width:thin] focus:ring-0 focus:outline-none"
+			></textarea>
 		</div>
-	{/if} -->
+
+		<IconButton onclick={send_text} title="Send file" {disabled}>
+			<SendHorizontal />
+		</IconButton>
+	</div>
 </div>
