@@ -5,9 +5,9 @@
     ensure_protocol,
     format_file_size,
     format_hs_mm,
-    get_codeblock_content,
     is_codeblock,
-    is_like_link
+    is_like_link,
+    parse_codeblock_content
   } from '$lib/utils';
   import CircleOff from '@lucide/svelte/icons/circle-off';
   import File from '@lucide/svelte/icons/file';
@@ -47,7 +47,7 @@
             {msg.text}
           </a>
         {:else if is_codeblock(msg.text)}
-          <pre class="code-block"><code>{get_codeblock_content(msg.text)}</code></pre>
+          <pre class="code-block"><code>{parse_codeblock_content(msg.text)}</code></pre>
         {:else}
           <p class="break-words">{msg.text}</p>
         {/if}

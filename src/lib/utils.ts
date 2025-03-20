@@ -83,14 +83,14 @@ export function is_codeblock(text: string): boolean {
     return pattern.test(text);
 }
 
-export function get_codeblock_content(text: string): string {
+export function parse_codeblock_content(text: string): string {
     const pattern = /^\s*```([\s\S]*?)```\s*$/;
     const match = text.match(pattern);
     return match ? match[1].trim() : '';
 }
 
 export function is_like_link(text: string): boolean {
-    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- ./?%&=#]*)?$/i;
+    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- .~/?%&=#]*)?$/i;
     return urlPattern.test(text);
 }
 
@@ -99,4 +99,71 @@ export function ensure_protocol(link: string): string {
         return link;
     }
     return `https://${link}`;
+}
+
+export function proccess_data_transfer(dt: DataTransfer | null, on_files: (files: File[]) => void, on_text: (text: string) => void) {
+    if (dt === null || dt.items.length === 0) {
+        return;
+    }
+
+    const safe_files: File[] = [];
+    let safe_text: string = '';
+
+    for (const item of dt.items) {
+        if (item.kind === 'string') {
+            if (item.type !== 'text/plain') {
+                continue;
+            }
+            safe_text = dt.getData('text/plain');
+            continue;
+        }
+
+        const entry = item.webkitGetAsEntry();
+        if (entry === null) {
+            // in case of not being a file system file
+            const file_ref = item.getAsFile();
+            if (file_ref === null || file_ref.size === 0) {
+                continue;
+            }
+            safe_files.push(file_ref);
+            continue;
+        }
+
+        if (entry.isFile) {
+            const file_ref = item.getAsFile();
+            if (file_ref === null) {
+                continue;
+            }
+            safe_files.push(file_ref);
+            continue;
+        }
+
+        // is a directory
+    }
+
+    if (safe_files.length > 0) {
+        on_files(safe_files);
+        return;
+    }
+
+    if (safe_text.length > 0) {
+        on_text(safe_text);
+        return;
+    }
+}
+
+export function is_editable_el(el: EventTarget | null): el is HTMLElement {
+    if (el === null) {
+        return false;
+    }
+    if (el instanceof HTMLElement && el.isContentEditable) {
+        return true;
+    }
+    if (el instanceof HTMLInputElement) {
+        return !(el.disabled || el.readOnly);
+    }
+    if (el instanceof HTMLTextAreaElement) {
+        return !(el.disabled || el.readOnly);
+    }
+    return false;
 }

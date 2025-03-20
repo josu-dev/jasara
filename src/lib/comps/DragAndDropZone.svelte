@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { proccess_data_transfer } from '$lib/utils';
   import FileText from '@lucide/svelte/icons/file-text';
   import Image from '@lucide/svelte/icons/image';
 
@@ -69,46 +70,7 @@
     // ev.stopPropagation();
     is_dragging = false;
 
-    const dt = ev.dataTransfer;
-    if (dt === null || dt.items.length === 0) {
-      return;
-    }
-
-    let safe_files: File[] = [];
-    let safe_text: string = '';
-
-    for (const item of dt.items) {
-      if (item.kind === 'string') {
-        if (item.type !== 'text/plain') {
-          continue;
-        }
-        safe_text = dt.getData('text/plain');
-        continue;
-      }
-
-      const entry = item.webkitGetAsEntry();
-      if (entry === null) {
-        continue;
-      }
-      if (entry.isFile) {
-        const file_ref = item.getAsFile();
-        if (file_ref !== null) {
-          safe_files.push(file_ref);
-        }
-        continue;
-      }
-      // is a directory
-    }
-
-    if (safe_files.length > 0) {
-      on_files_drop(safe_files);
-      return;
-    }
-
-    if (safe_text.length > 0) {
-      on_text_drop(safe_text);
-      return;
-    }
+    proccess_data_transfer(ev.dataTransfer, on_files_drop, on_text_drop);
   }
 </script>
 

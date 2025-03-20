@@ -239,7 +239,8 @@
 		<InputBar
 			on_send_files={send_files}
 			on_send_text={send_text}
-			disabled={connectionStatus !== 'Connected'}
+      on_paste_files={send_files}
+			disabled={connectionStatus !== 'Connected'&& false}
 		/>
 	</div>
 </main>
