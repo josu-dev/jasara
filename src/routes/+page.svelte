@@ -122,14 +122,14 @@
 		messages.push(msg);
 	}
 
-	function send_text(text: string, reset: () => void) {
+	function send_text(text: string, reset?: () => void) {
 		const msg = p2p.create_text_message(text);
 		if (!p2p.send_text(msg)) {
 			return;
 		}
 
 		messages.push(msg);
-		reset();
+		reset?.();
 	}
 
 	function send_file(file: File) {
@@ -137,6 +137,15 @@
 		p2p.send_file(msg, file);
 
 		messages.push(msg);
+	}
+
+	function send_files(files: File[]) {
+		for (const file of files) {
+			const msg = p2p.create_file_message(file);
+			p2p.send_file(msg, file);
+
+			messages.push(msg);
+		}
 	}
 
 	function cancel_file_transfer(id: string) {
@@ -215,8 +224,9 @@
 	<div class="border-border flex h-full flex-col overflow-hidden rounded-md border">
 		<div class="relative grid h-full overflow-hidden">
 			<DragAndDropZone
-				on_files_drop={(files) => send_file(files[0])}
-				drag_disabled={connectionStatus !== 'Connected'}
+				on_files_drop={send_files}
+				on_text_drop={send_text}
+				drag_disabled={connectionStatus !== 'Connected' && false}
 			/>
 			<Messages
 				messages={messages as RenderableMessage[]}
@@ -227,7 +237,7 @@
 		</div>
 
 		<InputBar
-			on_send_file={send_file}
+			on_send_files={send_files}
 			on_send_text={send_text}
 			disabled={connectionStatus !== 'Connected'}
 		/>

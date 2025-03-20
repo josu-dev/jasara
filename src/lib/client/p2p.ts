@@ -1,5 +1,5 @@
 import type { ChannelMessage, FileId, MessageFileChunk, MessageFileTransfer, MessageText, RoomId } from '$lib/types/types';
-import { assert_exists } from '$lib/utils';
+import { assert_exists, get_human_file_type } from '$lib/utils';
 
 export const MESSAGE_TYPE = {
     TEXT: 1,
@@ -111,7 +111,7 @@ function on_data_channel_message(event: MessageEvent) {
                 type: MESSAGE_TYPE.FILE_TRANSFER,
                 id: msg.id,
                 ts: msg.ts,
-                sender: msg.sender,
+                sender: "other",
                 f_type: msg.f_type,
                 f_size: msg.f_size,
                 f_id: msg.f_id,
@@ -151,7 +151,7 @@ function on_data_channel_message(event: MessageEvent) {
                 transfer.completed = true;
                 transfer.progress = 100;
                 on_file_update(transfer);
-                on_system_message(create_text_message(`File "${transfer.id}" received successfully`, 'system'));
+                // on_system_message(create_text_message(`File "${transfer.id}" received successfully`, 'system'));
             }
             else {
                 transfer.progress = progress;
@@ -187,14 +187,17 @@ function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
     peer_connection = new RTCPeerConnection();
 
     peer_connection.onicecandidate = async (event) => {
-        if (event.candidate) {
-            // Send the ICE candidate to the signaling server
-            await fetch(`/api/signal/${room_id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'iceCandidate', iceCandidate: event.candidate })
-            });
+        const candidate = event.candidate;
+        if (candidate === null) {
+            return;
         }
+
+        await fetch(`/api/signal/${room_id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'iceCandidate', iceCandidate: candidate })
+        });
+        console.log('post:', candidate);
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -376,7 +379,7 @@ async function pollForAnswer(id: RoomId,) {
 // Poll for ICE candidates
 async function pollForIceCandidates(id: RoomId,) {
     assert_exists(peer_connection, 'Peer connection not initialized');
-    let lastCandidateId = -1;
+    // let lastCandidateId = -1;
 
     const intervalId = setInterval(async () => {
         assert_exists(peer_connection, 'Peer connection not initialized');
@@ -385,14 +388,18 @@ async function pollForIceCandidates(id: RoomId,) {
             return;
         }
         try {
-            const response = await fetch(`/api/signal/${id}?since=${lastCandidateId}`);
+            const response = await fetch(`/api/signal/${id}`);
             if (response.ok) {
                 const {
                     data: { iceCandidates }
                 } = await response.json();
-                for (const candidate of iceCandidates) {
-                    await peer_connection.addIceCandidate(new RTCIceCandidate(candidate));
-                    lastCandidateId = candidate.id;
+                for (const ice_candidate of iceCandidates) {
+                    const candidate = new RTCIceCandidate(ice_candidate);
+                    try {
+                        await peer_connection.addIceCandidate(candidate);
+                    } catch (ex) {
+                        console.log(ex);
+                    }
                 }
             }
         } catch (error) {
@@ -437,7 +444,7 @@ export function create_file_message(file: File, sender: string = "me"): MessageF
         f_id: Date.now().toString() + "_" + file.name,
         f_name: file.name,
         f_size: file.size,
-        f_type: file.type,
+        f_type: get_human_file_type(file),
         f_url: undefined,
         chunks_total: 0,
         progress: 0,
@@ -515,7 +522,8 @@ export async function send_file(msg: MessageFileTransfer, file: File): Promise<b
         if (current_chunk_index >= chunks_queue.length) {
             msg.ts_end = new Date().toISOString();
             msg.completed = true;
-            on_system_message(create_text_message(`File "${msg.f_name}" sent successfully`, 'system'));
+            msg.f_url = f_as_base64;
+            // on_system_message(create_text_message(`File "${msg.f_name}" sent successfully`, 'system'));
             on_file_update(msg);
         }
     }

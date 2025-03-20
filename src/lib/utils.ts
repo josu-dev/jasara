@@ -14,9 +14,40 @@ export function format_file_size(bytes: number): string {
         return bytes + ' bytes';
     }
     if (bytes < 1024 * 1024) {
-        return (bytes / 1024).toFixed(1) + ' kb';
+        return (bytes / 1024).toFixed(1) + ' KB';
     }
-    return (bytes / (1024 * 1024)).toFixed(1) + ' mb';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+export function get_human_file_type(file: File): string {
+    const ext_idx = file.name.lastIndexOf('.');
+    if (ext_idx >= 0) {
+        const ext = file.name.slice(ext_idx + 1);
+        if (ext.length > 0) {
+            return ext;
+        }
+    }
+    const mimetype = file.type;
+    if (mimetype.length === 0) {
+        return 'unk';
+    }
+    const slash_idx = mimetype.indexOf('/');
+    if (slash_idx < 0) {
+        return 'unk';
+    }
+    const semicolon_idx = mimetype.indexOf(';');
+    let subtype: string;
+    if (semicolon_idx) {
+        subtype = mimetype.slice(slash_idx + 1, semicolon_idx);
+    }
+    else {
+        subtype = mimetype.slice(slash_idx + 1);
+    }
+    if (subtype.length === 0) {
+        return 'unk';
+    }
+    return subtype;
+
 }
 
 export async function download_file(url: string, filename: string): Promise<void> {
@@ -59,7 +90,7 @@ export function get_codeblock_content(text: string): string {
 }
 
 export function is_like_link(text: string): boolean {
-    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- ./?%&=]*)?$/i;
+    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- ./?%&=#]*)?$/i;
     return urlPattern.test(text);
 }
 
