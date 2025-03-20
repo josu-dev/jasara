@@ -84,10 +84,10 @@
 	.code-block {
 		scrollbar-color: var(--color-fg-100) transparent;
 		scrollbar-width: thin;
-		max-width: calc(100%+var(--spacing) * -1);
+		max-width: calc(100% + var(--spacing) * 2);
 		overflow-x: auto;
 		font-size: var(--text-sm);
-		line-height: var(calc(var(--spacing) * 5));
+		line-height: calc(var(--spacing) * 5);
 		background-color: var(--color-base-200);
 		margin-inline: calc(var(--spacing) * -1);
 		border-radius: 0.25rem;

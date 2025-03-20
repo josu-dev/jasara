@@ -35,14 +35,14 @@
 
 <div class="">
 	<div class="flex gap-x-2 items-center">
-		<div class="max-w-64 flex-1">
+		<div class="max-w-40 sm:max-w-64 flex-1">
 			<label for="roomId" class="sr-only">Room ID</label>
 			<input
 				type="text"
 				id="roomId"
 				placeholder="Room ID"
 				bind:value={room_id}
-				class="border-border w-full max-w-md rounded border bg-transparent px-2 py-1 focus:ring-0 focus:outline-none"
+				class="border-border w-full rounded border bg-transparent px-2 py-1 focus:ring-0 focus:outline-none"
 			/>
 		</div>
 

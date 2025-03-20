@@ -35,20 +35,22 @@
 <div class="bg-base-100 border-border border-t px-3 py-2">
 	<div class="flex items-end">
 		<label
-			for="fileInput"
+			for="file_input"
 			title="Attach file"
-			class="hover:bg-base-300 grid size-11 cursor-pointer place-items-center rounded-full"
+			class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed"
 		>
 			<span class="sr-only">Attach file</span>
 			<Paperclip />
 			<input
+				id="file_input"
 				type="file"
-				id="fileInput"
-				{disabled}
+				accept="*"
+				multiple
 				class="hidden"
 				oninput={(ev) => {
 					on_input(ev.currentTarget.files);
 				}}
+				{disabled}
 			/>
 		</label>
 
@@ -57,11 +59,13 @@
     after:invisible after:max-h-[5lh] after:min-h-[1lh] after:border after:px-3.5 after:py-2.5 after:whitespace-pre-wrap after:text-inherit
     after:content-[attr(data-text)_'_'] after:[grid-area:1/1/2/2] [&>textarea]:[grid-area:1/1/2/2]"
 		>
+			<label for="text-input" class="sr-only">Message</label>
 			<textarea
-				spellcheck="true"
+				id="text_input"
 				placeholder="Message"
 				rows="1"
-				bind:value={raw_text}
+				spellcheck="true"
+				class="scrollbar-themed w-full resize-none overflow-x-hidden overflow-y-auto border-none bg-transparent px-2 py-2 focus:ring-0 focus:outline-none disabled:cursor-not-allowed"
 				onkeypress={(ev) => {
 					if (ev.key === 'Enter' && !ev.shiftKey) {
 						ev.preventDefault();
@@ -71,7 +75,7 @@
 				}}
 				oninput={(ev) => (ev.currentTarget.parentElement!.dataset.text = ev.currentTarget.value)}
 				{disabled}
-				class=" w-full resize-none overflow-x-hidden overflow-y-auto border-none bg-transparent px-2 py-2 scrollbar-themed focus:ring-0 focus:outline-none"
+				bind:value={raw_text}
 			></textarea>
 		</div>
 
