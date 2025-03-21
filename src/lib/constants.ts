@@ -1,6 +1,8 @@
 export const SITE_NAME = "JASARA";
 
-export const DEFAULT_MSG = "Welcome to JASARA 🐇\n\nReady to transfer things?"
+export const DEFAULT_MSG = "Welcome to JASARA 🐇\n\nReady to transfer things?";
+
+export const DEFAULT_ROOM_ID = "some-id";
 
 export const DEFAULT_SEO = {
     icon: '/favicon.svg',

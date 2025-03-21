@@ -17,9 +17,8 @@
 
   type Props = {
     msg: RenderableMessage;
-    isHost: boolean;
     on_cancel_file: (file_id: string) => void;
-    on_download_file: (file_url: string, file_name: string) => void;
+    on_download_file: (file_id: string) => void;
   };
 
   let { msg, on_cancel_file, on_download_file }: Props = $props();
@@ -77,8 +76,7 @@
             <div class="ml-auto">
               <IconButton
                 onclick={() => {
-                  console.log(msg);
-                  on_download_file(msg.f_url, msg.f_name);
+                  on_download_file(msg.f_id);
                 }}
                 title="Download file"
               >

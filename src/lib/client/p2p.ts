@@ -1,5 +1,5 @@
 import type { ChannelMessage, FileId, MessageFileChunk, MessageFileTransfer, MessageText, RoomId } from '$lib/types/types';
-import { assert_exists, get_human_file_type } from '$lib/utils';
+import { assert_exists, create_module_logger, get_human_file_type } from '$lib/utils';
 
 export const MESSAGE_TYPE = {
     TEXT: 1,
@@ -25,7 +25,6 @@ export type ConnectionStatus = typeof connectionStatus[keyof typeof connectionSt
 let peer_connection: RTCPeerConnection | undefined = undefined;
 let data_channel: RTCDataChannel | undefined = undefined;
 let room_id = '';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let is_host = false;
 let connection_status: ConnectionStatus = connectionStatus.None;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -45,6 +44,10 @@ type FileTransfer = MessageFileTransfer & {
 
 const _files_transfer = new Map<FileId, FileTransfer>();
 
+const ANSWER_POLLING_INTERVAL = 1 * 1000;
+const ANSWER_POLLING_TRIES = 45;
+const ICE_CANDIDATES_POLLING_INTERVAL = 1 * 1000;
+const ICE_CANDIDATES_POLLING_TRIES = 45;
 // Constants for chunked file transfer
 const CHUNK_SIZE = 16 * 1024; // 16KB chunks
 
@@ -52,6 +55,8 @@ const CHUNK_SIZE = 16 * 1024; // 16KB chunks
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit
 const BUFFER_FULL_THRESHOLD = 1 * 1024 * 1024; // 1MB buffer threshold
 const BUFFER_LOW_THRESHOLD = 512 * 1024; // 512KB low buffer threshold
+
+const mlog = create_module_logger('p2p');
 
 function _create_msg_id(): string {
     return crypto.getRandomValues(new Uint32Array(1))[0].toString(16);
@@ -88,16 +93,15 @@ function on_data_channel_message(event: MessageEvent) {
         value = JSON.parse(event.data);
     }
     catch {
-        console.error('Received invalid message:', event);
+        mlog.error('Received invalid message:', event);
         return;
     }
     if (typeof value !== 'object' || value === null || !('type' in value)) {
-        console.error('Received invalid message:', value);
+        mlog.error('Received malformed message:', value);
         return;
     }
 
     const msg = value as ChannelMessage;
-
     switch (msg.type) {
         case MESSAGE_TYPE.TEXT: {
             if (msg.sender !== 'system') {
@@ -106,6 +110,7 @@ function on_data_channel_message(event: MessageEvent) {
             on_channel_message(msg);
             break;
         }
+
         case MESSAGE_TYPE.FILE_TRANSFER: {
             const transfer: FileTransfer = {
                 type: MESSAGE_TYPE.FILE_TRANSFER,
@@ -136,54 +141,48 @@ function on_data_channel_message(event: MessageEvent) {
         case MESSAGE_TYPE.FILE_CHUNK: {
             const transfer = _files_transfer.get(msg.i);
             if (transfer === undefined) {
-                console.log('File transfer not found:', msg);
+                mlog.warn('Orphan file chunk received:', msg);
                 return;
             }
 
             transfer.chunks[msg.n] = msg.c;
             transfer.chunks_received++;
-            const progress = Math.floor((transfer.chunks_received / transfer.chunks.length) * 100);
-            // transfer.msg.progress = progress;
+            transfer.progress = Math.floor((transfer.chunks_received / transfer.chunks.length) * 100);
+
             if (transfer.chunks_received === transfer.chunks.length) {
                 const f_as_base64 = transfer.chunks.join('');
                 transfer.f_url = f_as_base64;
                 transfer.ts_end = new Date().toISOString();
                 transfer.completed = true;
                 transfer.progress = 100;
-                on_file_update(transfer);
-                // on_system_message(create_text_message(`File "${transfer.id}" received successfully`, 'system'));
             }
-            else {
-                transfer.progress = progress;
-                on_file_update(transfer);
-            }
+
+            on_file_update(transfer);
             break;
         }
 
         case MESSAGE_TYPE.FILE_ABORT: {
             const transfer = _files_transfer.get(msg.i);
             if (transfer === undefined) {
-                console.log('File transfer to abort not found:', msg);
+                mlog.warn('Orphan file abort received:', msg);
                 return;
             }
 
             transfer.aborted = true;
-            transfer.aborted = true;
             transfer.progress = -1;
             on_file_update(transfer);
-            on_system_message(create_text_message(`File transfer "${transfer.f_name}" was aborted`, 'system'));
+            on_system_message(create_text_message(`File transfer '${transfer.f_name}' aborted`, 'system'));
             break;
         }
 
         default: {
-            console.warn('This message type is not supported:', msg);
+            mlog.error('Received unknown message:', msg);
         }
     }
 }
 
 function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
-    // Create RTCPeerConnection without ICE servers (STUN/TURN)
-    // This will only work on a private network
+    // Create RTCPeerConnection without ICE servers (STUN/TURN) for private network
     peer_connection = new RTCPeerConnection();
 
     peer_connection.onicecandidate = async (event) => {
@@ -192,12 +191,14 @@ function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
             return;
         }
 
-        await fetch(`/api/signal/${room_id}`, {
+        const r = await fetch(`/api/signal/${room_id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'iceCandidate', iceCandidate: candidate })
+            body: JSON.stringify({ type: 'CANDIDATE', is_host: is_host, candidate: candidate })
         });
-        console.log('post:', candidate);
+        if (r.ok) {
+            return;
+        }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -242,6 +243,144 @@ function init_peer_connection(room_id: RoomId, is_host: boolean = false) {
     }
 }
 
+async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_host: boolean) {
+    let tries = 0;
+    const interval_id = setInterval(async () => {
+        if (pc.iceConnectionState === 'connected') {
+            clearInterval(interval_id);
+            return;
+        }
+
+        tries += 1;
+        if (tries > ICE_CANDIDATES_POLLING_TRIES) {
+            clearInterval(interval_id);
+            return;
+        }
+
+        try {
+            const r = await fetch(`/api/signal/${room_id}`);
+            if (!r.ok) {
+                return;
+            }
+            const value = await r.json();
+            let candidates: RTCIceCandidateInit[];
+            if (is_host) {
+                candidates = value.data.answer_candidates;
+            }
+            else {
+                candidates = value.data.offer_candidates;
+            }
+
+            for (const candidate of candidates) {
+                const ice_candidate = new RTCIceCandidate(candidate);
+                try {
+                    await pc.addIceCandidate(ice_candidate);
+                } catch (ex) {
+                    mlog.error('Error adding candidate:', ex);
+                }
+            }
+        } catch (ex) {
+            mlog.error('Unexpected exception while polling for ice candidates:', ex);
+        }
+    }, ICE_CANDIDATES_POLLING_INTERVAL);
+}
+
+async function create_offer() {
+    assert_exists(peer_connection, 'Peer connection not initialized');
+    const offer = await peer_connection.createOffer();
+    await peer_connection.setLocalDescription(offer);
+
+    return peer_connection.localDescription;
+}
+
+async function create_room(id: RoomId,) {
+    const offer = await create_offer();
+    if (offer === null || offer.type !== 'offer') {
+        mlog.error(`Failed to create room '${id}'`);
+        return;
+    }
+
+    const r = await fetch(`/api/signal/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'OFFER', offer: offer })
+    });
+
+    if (!r.ok) {
+        mlog.error(`Failed to create room '${id}'`);
+        return;
+    }
+
+    on_system_message(create_text_message(`Room '${id}' created, establishing connection...`, 'system'));
+
+    let tries = 0;
+    const intervalId = setInterval(async () => {
+        tries += 1;
+        if (tries >= ANSWER_POLLING_TRIES) {
+            clearInterval(intervalId);
+            return;
+        }
+
+        try {
+            const r = await fetch(`/api/signal/${id}`);
+            if (!r.ok) {
+                mlog.warn('Bad response for room:', r);
+                return;
+            }
+
+            const { data: { answer } } = await r.json();
+            if (!answer) {
+                return;
+            }
+
+            clearInterval(intervalId);
+
+            await peer_connection!.setRemoteDescription(new RTCSessionDescription(answer));
+
+            poll_ice_candidates(peer_connection!, id, is_host);
+        } catch (ex) {
+            mlog.error('Unexpected exception while polling for answer:', ex);
+        }
+    }, ANSWER_POLLING_INTERVAL);
+}
+
+async function create_answer(offer: RTCSessionDescription) {
+    assert_exists(peer_connection, 'Peer connection not initialized');
+    await peer_connection.setRemoteDescription(offer);
+
+    const answer = await peer_connection.createAnswer();
+    await peer_connection.setLocalDescription(answer);
+
+    return peer_connection.localDescription;
+}
+
+async function join_room(id: RoomId,) {
+    const r = await fetch(`/api/signal/${id}`);
+
+    if (!r.ok) {
+        mlog.error(`Failed ro join room '${id}'`);
+        return;
+    }
+
+    const { data: { offer } } = await r.json();
+
+    const answer = await create_answer(new RTCSessionDescription(offer));
+    if (answer === null || answer.type !== 'answer') {
+        mlog.error(`Failed to join room '${id}'`);
+        return;
+    }
+
+    await fetch(`/api/signal/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'ANSWER', answer: answer })
+    });
+
+    on_system_message(create_text_message(`Room '${id}' found, establishing connection...`, 'system'));
+
+    poll_ice_candidates(peer_connection!, room_id, false);
+}
+
 type InitClientOptions = {
     id: RoomId;
     on_message: (msg: ChannelMessage) => void;
@@ -251,7 +390,7 @@ type InitClientOptions = {
     on_file_update: (msg: MessageFileTransfer) => void;
 };
 
-export async function init_host(options: InitClientOptions) {
+export async function init_as_host(options: InitClientOptions) {
     room_id = options.id;
     is_host = true;
     on_conn_state_change = options.on_conn_state_change;
@@ -268,7 +407,7 @@ export async function init_host(options: InitClientOptions) {
     await create_room(room_id);
 }
 
-export async function init_guest(options: InitClientOptions) {
+export async function init_as_guest(options: InitClientOptions) {
     room_id = options.id;
     is_host = false;
     on_conn_state_change = options.on_conn_state_change;
@@ -280,136 +419,11 @@ export async function init_guest(options: InitClientOptions) {
     error_message = '';
     connection_status = connectionStatus.Connecting;
 
-    init_peer_connection(room_id);
+    init_peer_connection(room_id, false);
 
     await join_room(room_id);
 }
 
-async function create_offer() {
-    assert_exists(peer_connection, 'Peer connection not initialized');
-    const offer = await peer_connection.createOffer();
-    await peer_connection.setLocalDescription(offer);
-
-    return peer_connection.localDescription;
-}
-
-async function create_answer(offer: RTCSessionDescription) {
-    assert_exists(peer_connection, 'Peer connection not initialized');
-    await peer_connection.setRemoteDescription(offer);
-
-    // Create answer
-    const answer = await peer_connection.createAnswer();
-    await peer_connection.setLocalDescription(answer);
-
-    return peer_connection.localDescription;
-}
-
-// Create a new room as host
-async function create_room(id: RoomId,) {
-    // Create offer
-    const offer = await create_offer();
-
-    // Send offer to signaling server
-    const response = await fetch(`/api/signal/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'offer', offer: offer })
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to create room');
-    }
-
-    on_system_message(create_text_message('Room created, waiting for guest to join', 'system'));
-
-    // Poll for answer
-    pollForAnswer(id);
-}
-
-// Join an existing room
-async function join_room(id: RoomId,) {
-    // Fetch offer from signaling server
-    const response = await fetch(`/api/signal/${id}`);
-
-    if (!response.ok) {
-        throw new Error('Room not found or no offer available');
-    }
-
-    const { data: { offer } } = await response.json();
-
-    const answer = await create_answer(new RTCSessionDescription(offer));
-
-    await fetch(`/api/signal/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'answer', answer: answer })
-    });
-
-    on_system_message(create_text_message('Joining room...', 'system'));
-
-    pollForIceCandidates(id);
-}
-
-async function pollForAnswer(id: RoomId,) {
-    const intervalId = setInterval(async () => {
-        assert_exists(peer_connection, 'Peer connection not initialized');
-        try {
-            const response = await fetch(`/api/signal/${id}`);
-            if (response.ok) {
-                const {
-                    data: { answer }
-                } = await response.json();
-                if (answer) {
-                    await peer_connection.setRemoteDescription(new RTCSessionDescription(answer));
-                    clearInterval(intervalId);
-
-                    // After receiving answer, poll for ICE candidates
-                    pollForIceCandidates(id);
-                }
-            }
-        } catch (error) {
-            console.error('Error polling for answer:', error);
-        }
-    }, 1000);
-
-    // Clear interval after 60 seconds to prevent infinite polling
-    setTimeout(() => clearInterval(intervalId), 60000);
-}
-
-// Poll for ICE candidates
-async function pollForIceCandidates(id: RoomId,) {
-    assert_exists(peer_connection, 'Peer connection not initialized');
-    // let lastCandidateId = -1;
-
-    const intervalId = setInterval(async () => {
-        assert_exists(peer_connection, 'Peer connection not initialized');
-        if (peer_connection.iceConnectionState === 'connected') {
-            clearInterval(intervalId);
-            return;
-        }
-        try {
-            const response = await fetch(`/api/signal/${id}`);
-            if (response.ok) {
-                const {
-                    data: { iceCandidates }
-                } = await response.json();
-                for (const ice_candidate of iceCandidates) {
-                    const candidate = new RTCIceCandidate(ice_candidate);
-                    try {
-                        await peer_connection.addIceCandidate(candidate);
-                    } catch (ex) {
-                        console.log(ex);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error polling for ICE candidates:', error);
-        }
-    }, 1000);
-
-    // Clear interval after connection established or timeout
-    setTimeout(() => clearInterval(intervalId), 60000);
-}
 
 function _send_channel_msg(msg: ChannelMessage) {
     assert_exists(data_channel, 'Data channel not initialized or closed');
@@ -523,7 +537,6 @@ export async function send_file(msg: MessageFileTransfer, file: File): Promise<b
             msg.ts_end = new Date().toISOString();
             msg.completed = true;
             msg.f_url = f_as_base64;
-            // on_system_message(create_text_message(`File "${msg.f_name}" sent successfully`, 'system'));
             on_file_update(msg);
         }
     }
@@ -532,38 +545,6 @@ export async function send_file(msg: MessageFileTransfer, file: File): Promise<b
     return true;
 }
 
-// export async function send_files(msgs: MessageFileTransfer[], on_update: (msg: MessageFileTransfer) => void): Promise<boolean> {
-//     if (!data_channel || data_channel.readyState !== 'open') {
-//         return false;
-//     }
-
-//     const promises: Promise<void>[] = [];
-//     const msgs: ChannelMessage[] = [];
-//     for (const f of file) {
-//         const id = Date.now().toString() + "_" + f.name;
-//         const message: MessageFileTransfer = {
-//             type: MESSAGE_TYPE.FILE_TRANSFER,
-//             f_id: id,
-//             sender: 'other',
-//             f_name: f.name,
-//             f_size: f.size,
-//             progress: 0,
-//             ts: new Date().toISOString(),
-//             aborted: false,
-//             completed: false,
-//             f_type: f.type,
-//             chunks_total: 0
-//         };
-
-//         msgs.push(message);
-//         promises.push(_send_file(id, f));
-//     }
-
-//     await Promise.all(promises);
-//     return true;
-// }
-
-// Cancel an ongoing file transfer
 export function cancel_file_transfer(file_id: string): boolean {
     assert_exists(data_channel, 'Data channel not initialized');
 
@@ -590,7 +571,6 @@ export async function cleanup() {
     on_system_message(create_text_message(`Disconnected from room '${room_id}'`, "system"));
 }
 
-// Handle disconnect
 export async function disconnect() {
     cleanup();
 }

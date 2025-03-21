@@ -8,6 +8,7 @@
   type Props = {
     connection_status: ConnectionStatus;
     connection_error: string;
+    default_room_id?: string;
     on_create: (room_id: string) => void;
     on_connect: (room_id: string) => void;
     on_disconnect: () => void;
@@ -16,12 +17,13 @@
   let {
     connection_status: connectionStatus,
     connection_error,
+    default_room_id = '',
     on_create,
     on_connect,
     on_disconnect
   }: Props = $props();
 
-  let room_id = $state('');
+  let room_id = $state(default_room_id);
 
   const connectionStatusToLabel = {
     Disconnected: 'Disconnected',
@@ -36,13 +38,15 @@
 <div class="">
   <div class="flex items-center gap-x-2">
     <div class="max-w-40 flex-1 sm:max-w-64">
-      <label for="roomId" class="sr-only">Room ID</label>
+      <label for="room_id" class="sr-only">Room ID</label>
       <input
+        id="room_id"
         type="text"
-        id="roomId"
         placeholder="Room ID"
-        bind:value={room_id}
+        minlength="1"
+        maxlength="16"
         class="border-border w-full rounded border bg-transparent px-2 py-1 focus:ring-0 focus:outline-none"
+        bind:value={room_id}
       />
     </div>
 
@@ -58,6 +62,10 @@
       {:else}
         <IconButton
           onclick={() => {
+            if (room_id.length < 1 || room_id.length > 16) {
+              alert('No room id must be between 1 and 16 characters');
+              return;
+            }
             on_create(room_id);
           }}
           title="Create"
@@ -66,6 +74,10 @@
         </IconButton>
         <IconButton
           onclick={() => {
+            if (room_id.length < 1 || room_id.length > 16) {
+              alert('No room id must be between 1 and 16 characters');
+              return;
+            }
             on_connect(room_id);
           }}
           title="Join"

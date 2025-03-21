@@ -167,3 +167,33 @@ export function is_editable_el(el: EventTarget | null): el is HTMLElement {
     }
     return false;
 }
+
+export function create_module_logger(name: string): {
+    info(message: string, ...data: any): void;
+    warn(message: string, ...data: any): void;
+    error(message: string, ...data: any): void;
+    nomodule(message: string, ...data: any): void;
+} {
+    const prefix_error = ' [' + name + '] ';
+    const prefix_info = ' [' + name + '] ';
+    const prefix_warn = ' [' + name + '] ';
+
+    return {
+        info(message: string, ...data: any): void {
+            const prefix = new Date().toLocaleTimeString() + prefix_info;
+            console['info'](prefix + message, ...data);
+        },
+        warn(message: string, ...data: any): void {
+            const prefix = new Date().toLocaleTimeString() + prefix_warn;
+            console['warn'](prefix + message, ...data);
+        },
+        error(message: string, ...data: any): void {
+            const prefix = new Date().toLocaleTimeString() + prefix_error;
+            console['error'](prefix + message, ...data);
+        },
+        nomodule(message: string, ...data: any): void {
+            const prefix = new Date().toLocaleTimeString();
+            console['info'](prefix + ' ' + message, ...data);
+        }
+    };
+}

@@ -6,11 +6,10 @@
   import Logo from '$lib/comps/Logo.svelte';
   import Messages from '$lib/comps/Messages.svelte';
   import SEO from '$lib/comps/SEO.svelte';
-  import { DEFAULT_MSG } from '$lib/constants';
+  import { DEFAULT_MSG, DEFAULT_ROOM_ID } from '$lib/constants';
   import type { ChannelMessage, MessageFileTransfer, RenderableMessage } from '$lib/types/types';
   import { download_file } from '$lib/utils';
 
-  let isHost = $state(false);
   let connectionStatus = $state('Disconnected');
   let errorMessage = $state('');
   let messages: ChannelMessage[] = $state([
@@ -43,9 +42,6 @@
       }
       case p2p.MESSAGE_TYPE.FILE_ABORT: {
         break;
-      }
-      default: {
-        console.warn('This message type is not supported:', msg);
       }
     }
   }
@@ -91,6 +87,15 @@
     add_system_message(`File transfer cancelled`);
   }
 
+  function on_download_file(id: string) {
+    for (const msg of messages) {
+      if (msg.type === p2p.MESSAGE_TYPE.FILE_TRANSFER && msg.f_id === id) {
+        download_file(msg.f_url!, msg.f_name);
+        return;
+      }
+    }
+  }
+
   function on_conn_state_change(status: p2p.ConnectionStatus): void {
     connectionStatus = status;
   }
@@ -131,8 +136,9 @@
     <ConnectionBar
       connection_status={connectionStatus as any}
       connection_error={errorMessage}
+      default_room_id={DEFAULT_ROOM_ID}
       on_create={(id) =>
-        p2p.init_host({
+        p2p.init_as_host({
           id,
           on_message,
           on_error: (err) => (errorMessage = err.message || 'Unknown error'),
@@ -141,7 +147,7 @@
           on_file_update: update_file
         })}
       on_connect={(id) =>
-        p2p.init_guest({
+        p2p.init_as_guest({
           id,
           on_message,
           on_error: (err) => (errorMessage = err.message || 'Unknown error'),
@@ -158,13 +164,12 @@
       <DragAndDropZone
         on_files_drop={send_files}
         on_text_drop={send_text}
-        drag_disabled={connectionStatus !== 'Connected' && false}
+        drag_disabled={connectionStatus !== 'Connected'}
       />
       <Messages
         messages={messages as RenderableMessage[]}
-        {isHost}
         {cancel_file_transfer}
-        {download_file}
+        {on_download_file}
       />
     </div>
 
@@ -172,7 +177,7 @@
       on_send_files={send_files}
       on_send_text={send_text}
       on_paste_files={send_files}
-      disabled={connectionStatus !== 'Connected' && false}
+      disabled={connectionStatus !== 'Connected'}
     />
   </div>
 </main>

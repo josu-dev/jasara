@@ -1,87 +1,63 @@
+import type { RoomId } from '$lib/types/types.js';
 import * as kv from './kv.js';
-// WEBRTC ROOM
+
+const ROOM_PREFIX = 'room:';
+const ROOM_TTL = 1 * 60 * 1000;
 
 export type Room = {
     id: string;
-    users: string[];
-    // offer: Map<string, RTCSessionDescription>;
-    // answer: Map<string, RTCSessionDescription>;
-    offer: string;
-    answer: string;
-    iceCandidates: RTCIceCandidate[];
-    created_at?: number;
+    offer: {
+        type: "offer";
+        sdp: string;
+    };
+    answer: null | {
+        type: "answer";
+        sdp: string;
+    };
+    offer_candidates: RTCIceCandidateInit[];
+    answer_candidates: RTCIceCandidateInit[];
+    created_at: number;
     updated_at?: number;
 };
 
-// const _rooms: Room[] = [];
-
-const ROOM_PREFIX = 'room:';
-
-export async function get_room(roomId: string): Promise<Room | undefined> {
-    const k = ROOM_PREFIX + roomId;
+export async function get_room(room_id: string): Promise<Room | undefined> {
+    const k = ROOM_PREFIX + room_id;
     const room = await kv.get_obj(k) as Room | undefined;
-
-    // console.log('get', k, room);
     return room;
-    // for (const room of _rooms) {
-    //     if (room.id === roomId) {
-    //         return room;
-    //     }
-    // }
-    // return undefined;
 }
 
-export async function create_room(roomId: string): Promise<Room | undefined> {
-    const k = ROOM_PREFIX + roomId;
-    let room = await get_room(roomId);
-    if (room !== undefined && Date.now() - room.created_at! < 1 * 60 * 1000) {
-        console.log('Room already exists', room);
+export async function create_room(room_id: string, offer: NonNullable<Room['offer']>): Promise<Room | undefined> {
+    let room = await get_room(room_id);
+    if (room !== undefined && Date.now() - room.created_at < ROOM_TTL) {
         return undefined;
     }
 
-    // if (room !== undefined) {
-    //     _rooms.splice(_rooms.indexOf(room), 1);
-    // }
-
     room = {
-        id: roomId,
-        users: [],
-        offer: '',
-        answer: '',
-        iceCandidates: [],
+        id: room_id,
+        answer: null,
+        answer_candidates: [],
+        offer: offer,
+        offer_candidates: [],
         created_at: Date.now(),
     };
 
+    const k = ROOM_PREFIX + room_id;
     await kv.set_obj(k, room);
-    // _rooms.push(room);
-    // console.log('create', k, room);
     return room;
 }
 
-export async function set_room_answer(room: Room): Promise<void> {
-    const k = ROOM_PREFIX + room.id;
-    await kv.set_field(k, '$.answer', room.answer);
-
-    // console.log('update', k, room);
+export async function set_room_answer(room_id: RoomId, answer: NonNullable<Room['answer']>): Promise<void> {
+    const k = ROOM_PREFIX + room_id;
+    await kv.set_field(k, '$.answer', answer);
 }
 
-export async function set_room_offer(room: Room): Promise<void> {
-    const k = ROOM_PREFIX + room.id;
-    await kv.set_field(k, '$.offer', room.offer);
+// export async function set_room_offer(room_id:RoomId, offer: NonNullable<Room['offer']>): Promise<void> {
+//     const k = ROOM_PREFIX + room_id;
+//     await kv.set_field(k, '$.offer', offer);
+// }
 
-    // console.log('update', k, room);
-}
-
-export async function add_room_candidate(room: Room): Promise<void> {
-    const k = ROOM_PREFIX + room.id;
-    await kv.push_field(k, '$.iceCandidates', room.iceCandidates.at(-1));
-
-    // console.log('update', k, room);
-}
-
-export async function update_room(room: Room): Promise<void> {
-    const k = ROOM_PREFIX + room.id;
-    await kv.set_obj(k, room);
-
-    // console.log('update', k, room);
+export async function add_room_candidate(room_id: RoomId, candidate: RTCIceCandidateInit, is_host: boolean): Promise<void> {
+    const k = ROOM_PREFIX + room_id;
+    const path = is_host ? '$.offer_candidates' : '$.answer_candidates';
+    await kv.push_field(k, path, candidate);
 }
