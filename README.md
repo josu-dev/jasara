@@ -1,6 +1,6 @@
 # JASARA
 
-_Jet Another Send and Receive App_
+_Just Another Send and Receive App_
 
 Transfer things between devices, easily
 
