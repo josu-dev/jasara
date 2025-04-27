@@ -19,15 +19,15 @@ export function format_file_size(bytes: number): string {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export function get_human_file_type(file: File): string {
-    const ext_idx = file.name.lastIndexOf('.');
+export function get_human_file_type(name: string, mimetype: string): string {
+    const ext_idx = name.lastIndexOf('.');
     if (ext_idx >= 0) {
-        const ext = file.name.slice(ext_idx + 1);
+        const ext = name.slice(ext_idx + 1);
         if (ext.length > 0) {
             return ext;
         }
     }
-    const mimetype = file.type;
+
     if (mimetype.length === 0) {
         return 'unk';
     }
@@ -50,8 +50,7 @@ export function get_human_file_type(file: File): string {
 
 }
 
-export async function download_file(url: string, filename: string): Promise<void> {
-    const blob = await (await fetch(url)).blob();
+export async function download_file(blob: Blob, filename: string): Promise<void> {
     const blob_url = URL.createObjectURL(blob);
     try {
         const a = document.createElement('a');
@@ -196,4 +195,14 @@ export function create_module_logger(name: string): {
             console['info'](prefix + ' ' + message, ...data);
         }
     };
+}
+
+export function noop() { };
+
+export function now_utc(): string {
+    return new Date().toISOString();
+}
+
+export function unreachable(message: string, value: never): never {
+    throw new Error(`Unreachable branch reached: ${message.replace('%s', JSON.stringify(value, null, 2))}`);
 }

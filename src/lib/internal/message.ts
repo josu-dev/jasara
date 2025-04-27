@@ -1,22 +1,32 @@
 import * as buff from './buffer.js';
 
-const MAX_BUFF_SIZE = 1024; // 1kb
 
-export const MESSAGE_TYPE = {
-    TEXT: 1,
-    FILE_META: 2,
-    FILE_CHUNK: 3,
-    FILE_ABORT: 4
-} as const;
+const TEXT_MAX_BUFF_SIZE = 1 + 16 * 1024; // 16385 B
+const FILE_META_MAX_BUFF_SIZE = 1 + 16 * 1024; // 16385 B
+const FILE_CHUNK_MAX_BUFF_SIZE = (
+    1
+    + (4 + 36 /* id uuidv4 */)
+    + (4 /* n u32 */)
+    + (4 + 16 * 1024 /* c u8[] */)
+); // 16433 B
+const FILE_ABORT_MAX_BUFF_SIZE = (
+    1
+    + (4 + 36 /* id uuidv4 */)
+); // 41 B
 
-type MessageType = typeof MESSAGE_TYPE;
+export const MESSAGE_TEXT = 1;
+export const MESSAGE_FILE_META = 2;
+export const MESSAGE_FILE_CHUNK = 3;
+export const MESSAGE_FILE_ABORT = 4;
+
+export type StringUuidv4 = string;
 
 export type MessageId = string;
 
-export type FileId = string;
+export type FileId = StringUuidv4;
 
 export type MessageText<T extends string = string> = {
-    type: MessageType['TEXT'];
+    type: typeof MESSAGE_TEXT;
     id: MessageId;
     ts: string;
     sender: T;
@@ -24,26 +34,26 @@ export type MessageText<T extends string = string> = {
 };
 
 export type MessageFileMeta = {
-    type: MessageType['FILE_META'];
+    type: typeof MESSAGE_FILE_META;
     id: MessageId;
     ts: string;
     sender: string;
     f_id: FileId;
     f_name: string;
     f_size: number;
-    f_type: string;
     f_total_chunks: number;
+    f_type: string;
 };
 
 export type MessageFileChunk = {
-    type: MessageType['FILE_CHUNK'];
+    type: typeof MESSAGE_FILE_CHUNK;
     id: FileId;
     n: number;
     c: Uint8Array;
 };
 
 export type MessageFileAbort = {
-    type: MessageType['FILE_ABORT'];
+    type: typeof MESSAGE_FILE_ABORT;
     id: FileId;
 };
 
@@ -139,21 +149,20 @@ export function decode_message(buffer: ArrayBuffer) {
     }
 
     switch (type) {
-        case MESSAGE_TYPE.TEXT: {
+        case MESSAGE_TEXT: {
             return decode_text(c);
         }
-        case MESSAGE_TYPE.FILE_META: {
+        case MESSAGE_FILE_META: {
             return decode_file_meta(c);
         }
-        case MESSAGE_TYPE.FILE_CHUNK: {
+        case MESSAGE_FILE_CHUNK: {
             return decode_file_chunk(c);
         }
-        case MESSAGE_TYPE.FILE_ABORT: {
+        case MESSAGE_FILE_ABORT: {
             return decode_file_abort(c);
         }
         default: {
-            console.warn(`[decode_message] Unknown type recived '${type}'`);
-            return;
+            throw new Error(`Invalid message type '${type}'`);
         }
     }
 }
@@ -161,13 +170,14 @@ export function decode_message(buffer: ArrayBuffer) {
 export type MessageEncodeOut = undefined | ArrayBuffer;
 
 export function encode_text(value: MessageText): MessageEncodeOut {
-    const c = buff.encode_ctx(MAX_BUFF_SIZE);
+    const c = buff.encode_ctx(TEXT_MAX_BUFF_SIZE);
     buff.write_uint8(c, value.type);
     buff.write_string(c, value.id);
     buff.write_string(c, value.ts);
     buff.write_string(c, value.sender);
     buff.write_string(c, value.text);
     if (c.error) {
+        console.warn(c, value);
         return;
     }
 
@@ -176,7 +186,7 @@ export function encode_text(value: MessageText): MessageEncodeOut {
 }
 
 export function encode_file_meta(value: MessageFileMeta): MessageEncodeOut {
-    const c = buff.encode_ctx(MAX_BUFF_SIZE);
+    const c = buff.encode_ctx(FILE_META_MAX_BUFF_SIZE);
     buff.write_uint8(c, value.type);
     buff.write_string(c, value.id);
     buff.write_string(c, value.ts);
@@ -187,6 +197,7 @@ export function encode_file_meta(value: MessageFileMeta): MessageEncodeOut {
     buff.write_string(c, value.f_type);
     buff.write_uint32(c, value.f_total_chunks);
     if (c.error) {
+        console.warn(c, value);
         return;
     }
 
@@ -196,13 +207,13 @@ export function encode_file_meta(value: MessageFileMeta): MessageEncodeOut {
 }
 
 export function encode_file_chunk(value: MessageFileChunk): MessageEncodeOut {
-    const c = buff.encode_ctx(MAX_BUFF_SIZE);
+    const c = buff.encode_ctx(FILE_CHUNK_MAX_BUFF_SIZE);
     buff.write_uint8(c, value.type);
     buff.write_string(c, value.id);
     buff.write_uint32(c, value.n);
     buff.write_uint8array(c, value.c);
     if (c.error) {
-        console.log(c)
+        console.warn(c, value);
         return;
     }
 
@@ -211,10 +222,11 @@ export function encode_file_chunk(value: MessageFileChunk): MessageEncodeOut {
 }
 
 export function encode_file_abort(value: MessageFileAbort): MessageEncodeOut {
-    const c = buff.encode_ctx(MAX_BUFF_SIZE);
+    const c = buff.encode_ctx(FILE_ABORT_MAX_BUFF_SIZE);
     buff.write_uint8(c, value.type);
     buff.write_string(c, value.id);
     if (c.error) {
+        console.warn(c, value);
         return;
     }
 

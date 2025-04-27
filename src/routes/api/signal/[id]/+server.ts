@@ -1,6 +1,6 @@
-import { IpAddress, Ipv6Address } from '$lib/ip';
-import type { Room } from '$lib/server/rooms';
-import { add_room_candidate, create_room, get_room, set_room_answer } from '$lib/server/rooms';
+import { IpAddress, Ipv6Address } from '$lib/ip.js';
+import type { Room } from '$lib/server/rooms.js';
+import { add_room_candidate, create_room, get_room, set_room_answer } from '$lib/server/rooms.js';
 import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { z } from 'zod';
 

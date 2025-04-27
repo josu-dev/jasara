@@ -1,47 +1,33 @@
 <script lang="ts">
-  import * as p2p from '$lib/client/p2p.js';
   import ConnectionBar from '$lib/comps/ConnectionBar.svelte';
   import DragAndDropZone from '$lib/comps/DragAndDropZone.svelte';
   import InputBar from '$lib/comps/InputBar.svelte';
   import Logo from '$lib/comps/Logo.svelte';
   import Messages from '$lib/comps/Messages.svelte';
   import SEO from '$lib/comps/SEO.svelte';
-  import { DEFAULT_MSG, DEFAULT_ROOM_ID } from '$lib/constants';
-  import type { ChannelMessage, MessageFileTransfer, RenderableMessage } from '$lib/types/types';
-  import { download_file } from '$lib/utils';
+  import { DEFAULT_MSG, DEFAULT_ROOM_ID } from '$lib/constants.js';
+  import * as p2p from '$lib/internal/p2p.svelte.js';
+  import { download_file, unreachable } from '$lib/utils.js';
 
   let connectionStatus = $state('Disconnected');
   let errorMessage = $state('');
-  let messages: ChannelMessage[] = $state([
-    {
-      type: p2p.MESSAGE_TYPE.TEXT,
-      id: '1',
-      sender: 'system',
-      text: DEFAULT_MSG,
-      ts: new Date().toISOString()
-    }
-  ]);
+  let messages: p2p.MessageRenderable[] = $state([p2p.create_text_message(DEFAULT_MSG, 'system')]);
+
   const id_to_idx: Map<string, number> = new Map();
 
-  function on_message(msg: ChannelMessage) {
+  function on_message(msg: p2p.MessageRenderable) {
     switch (msg.type) {
-      case p2p.MESSAGE_TYPE.TEXT: {
-        if (msg.sender !== 'system') {
-          msg.sender = 'other';
-        }
+      case p2p.MESSAGE_TEXT: {
         messages.push(msg);
-        break;
+        return;
       }
-      case p2p.MESSAGE_TYPE.FILE_TRANSFER: {
+      case p2p.MESSAGE_FILE_TRANSFER: {
         messages.push(msg);
         id_to_idx.set(msg.f_id, messages.length - 1);
-        break;
+        return;
       }
-      case p2p.MESSAGE_TYPE.FILE_CHUNK: {
-        break;
-      }
-      case p2p.MESSAGE_TYPE.FILE_ABORT: {
-        break;
+      default: {
+        unreachable(`Unhandled message case '%s'`, msg);
       }
     }
   }
@@ -54,7 +40,7 @@
 
   function send_text(text: string, reset?: () => void) {
     const msg = p2p.create_text_message(text);
-    if (!p2p.send_text(msg)) {
+    if (!p2p.send_text_message(msg)) {
       return;
     }
 
@@ -65,7 +51,7 @@
   function send_files(files: File[]) {
     for (const file of files) {
       const msg = p2p.create_file_message(file);
-      p2p.send_file(msg, file);
+      p2p.send_file_message(msg, file);
 
       messages.push(msg);
     }
@@ -77,7 +63,7 @@
     }
 
     for (const msg of messages) {
-      if (msg.type === p2p.MESSAGE_TYPE.FILE_TRANSFER && msg.f_id === id) {
+      if (msg.type === p2p.MESSAGE_FILE_TRANSFER && msg.f_id === id) {
         msg.aborted = true;
         msg.progress = -1;
         break;
@@ -89,8 +75,8 @@
 
   function on_download_file(id: string) {
     for (const msg of messages) {
-      if (msg.type === p2p.MESSAGE_TYPE.FILE_TRANSFER && msg.f_id === id) {
-        download_file(msg.f_url!, msg.f_name);
+      if (msg.type === p2p.MESSAGE_FILE_TRANSFER && msg.f_id === id && msg.completed) {
+        download_file(msg.f_blob, msg.f_name);
         return;
       }
     }
@@ -100,10 +86,10 @@
     connectionStatus = status;
   }
 
-  function update_file(m: MessageFileTransfer) {
+  function update_file(m: p2p.MessageFileTransfer) {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
-      if (msg.type === p2p.MESSAGE_TYPE.FILE_TRANSFER && msg.id === m.id) {
+      if (msg.type === p2p.MESSAGE_FILE_TRANSFER && msg.f_id === m.f_id) {
         messages[i] = m;
         break;
       }
@@ -112,7 +98,7 @@
 
   $effect(() => {
     return () => {
-      p2p.disconnect();
+      p2p.deinit();
       add_system_message('Disconnected from chat');
     };
   });
@@ -139,7 +125,7 @@
       default_room_id={DEFAULT_ROOM_ID}
       on_create={(id) =>
         p2p.init_as_host({
-          id,
+          room_id: id,
           on_message,
           on_error: (err) => (errorMessage = err.message || 'Unknown error'),
           on_system_message: on_message,
@@ -148,14 +134,14 @@
         })}
       on_connect={(id) =>
         p2p.init_as_guest({
-          id,
+          room_id: id,
           on_message,
           on_error: (err) => (errorMessage = err.message || 'Unknown error'),
           on_system_message: on_message,
           on_conn_state_change: on_conn_state_change,
           on_file_update: update_file
         })}
-      on_disconnect={p2p.disconnect}
+      on_disconnect={p2p.deinit}
     />
   </div>
 
@@ -166,11 +152,7 @@
         on_text_drop={send_text}
         drag_disabled={connectionStatus !== 'Connected'}
       />
-      <Messages
-        messages={messages as RenderableMessage[]}
-        {cancel_file_transfer}
-        {on_download_file}
-      />
+      <Messages {messages} {cancel_file_transfer} {on_download_file} />
     </div>
 
     <InputBar

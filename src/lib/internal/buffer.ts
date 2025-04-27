@@ -75,7 +75,7 @@ export function read_uint8array(ctx: DecodeCtx): undefined | Uint8Array {
         ctx.error = true;
         return;
     }
-    
+
     const slice = ctx.u8.slice(ctx.offset, ctx.offset + length);
     ctx.offset += length;
     return slice;
@@ -96,6 +96,10 @@ export function encode_ctx(max_size: number): EncodeCtx {
 }
 
 export function encode_ctx_to_arraybuffer(ctx: EncodeCtx): ArrayBuffer {
+    if (ctx.buffer.byteLength === ctx.offset) {
+        return ctx.buffer;
+    }
+
     const out = ctx.buffer.slice(0, ctx.offset);
     return out;
 }

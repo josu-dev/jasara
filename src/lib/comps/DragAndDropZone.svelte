@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { proccess_data_transfer } from '$lib/utils';
+  import { proccess_data_transfer } from '$lib/utils.js';
   import FileText from '@lucide/svelte/icons/file-text';
   import Image from '@lucide/svelte/icons/image';
 

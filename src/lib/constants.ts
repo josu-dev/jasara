@@ -19,5 +19,5 @@ export const DEFAULT_SEO = {
         width: "1200",
         height: "630",
     },
-    language_tag: 'es'
+    language_tag: 'en'
 } as const;

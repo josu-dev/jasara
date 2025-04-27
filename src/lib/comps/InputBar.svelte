@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { is_editable_el, proccess_data_transfer } from '$lib/utils';
+  import { is_editable_el, proccess_data_transfer } from '$lib/utils.js';
   import Paperclip from '@lucide/svelte/icons/paperclip';
   import SendHorizontal from '@lucide/svelte/icons/send-horizontal';
   import IconButton from './IconButton.svelte';

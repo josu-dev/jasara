@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { ConnectionStatus } from '$lib/client/p2p.js';
+  import type * as p2p from '$lib/internal/p2p.svelte.js';
   import Plus from '@lucide/svelte/icons/plus';
   import PowerOff from '@lucide/svelte/icons/power-off';
   import Search from '@lucide/svelte/icons/search';
   import IconButton from './IconButton.svelte';
 
   type Props = {
-    connection_status: ConnectionStatus;
+    connection_status: p2p.ConnectionStatus;
     connection_error: string;
     default_room_id?: string;
     on_create: (room_id: string) => void;

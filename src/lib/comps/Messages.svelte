@@ -1,9 +1,9 @@
 <script lang="ts">
   import Message from '$lib/comps/Message.svelte';
-  import type { RenderableMessage } from '$lib/types/types';
+  import type * as p2p from '$lib/internal/p2p.svelte.js';
 
   type Props = {
-    messages: RenderableMessage[];
+    messages: p2p.MessageRenderable[];
     cancel_file_transfer: (id: string) => void;
     on_download_file: (id: string) => void;
   };
@@ -20,7 +20,7 @@
 
 <div
   bind:this={container_el}
-  class="bg-base-200 scrollbar-themed flex-1 overflow-x-clip overflow-y-auto p-4"
+  class="bg-base-200 scrollbar-themed flex-1 overflow-x-clip overflow-y-auto p-2 sm:p-4"
 >
   {#each messages as msg}
     <Message {msg} on_cancel_file={cancel_file_transfer} {on_download_file} />

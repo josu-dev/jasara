@@ -1,7 +1,7 @@
-import type { RoomId } from '$lib/types/types.js';
 import * as kv from './kv.js';
 
 const ROOM_PREFIX = 'room:';
+
 const ROOM_TTL = 1 * 60 * 1000;
 
 export type Room = {
@@ -46,17 +46,17 @@ export async function create_room(room_id: string, offer: NonNullable<Room['offe
     return room;
 }
 
-export async function set_room_answer(room_id: RoomId, answer: NonNullable<Room['answer']>): Promise<void> {
+export async function set_room_answer(room_id: string, answer: NonNullable<Room['answer']>): Promise<void> {
     const k = ROOM_PREFIX + room_id;
     await kv.set_field(k, '$.answer', answer);
 }
 
-// export async function set_room_offer(room_id:RoomId, offer: NonNullable<Room['offer']>): Promise<void> {
+// export async function set_room_offer(room_id: string, offer: NonNullable<Room['offer']>): Promise<void> {
 //     const k = ROOM_PREFIX + room_id;
 //     await kv.set_field(k, '$.offer', offer);
 // }
 
-export async function add_room_candidate(room_id: RoomId, candidate: RTCIceCandidateInit, is_host: boolean): Promise<void> {
+export async function add_room_candidate(room_id: string, candidate: RTCIceCandidateInit, is_host: boolean): Promise<void> {
     const k = ROOM_PREFIX + room_id;
     const path = is_host ? '$.offer_candidates' : '$.answer_candidates';
     await kv.push_field(k, path, candidate);
