@@ -1,13 +1,15 @@
 import * as buff from './buffer.js';
 
 
+export const FILE_CHUNK_SIZE = 16384 // 16 * 1024 B
+
 const TEXT_MAX_BUFF_SIZE = 1 + 16 * 1024; // 16385 B
 const FILE_META_MAX_BUFF_SIZE = 1 + 16 * 1024; // 16385 B
 const FILE_CHUNK_MAX_BUFF_SIZE = (
     1
     + (4 + 36 /* id uuidv4 */)
     + (4 /* n u32 */)
-    + (4 + 16 * 1024 /* c u8[] */)
+    + (4 + FILE_CHUNK_SIZE /* c u8[] */)
 ); // 16433 B
 const FILE_ABORT_MAX_BUFF_SIZE = (
     1
@@ -25,11 +27,11 @@ export type MessageId = string;
 
 export type FileId = StringUuidv4;
 
-export type MessageText<T extends string = string> = {
+export type MessageText = {
     type: typeof MESSAGE_TEXT;
     id: MessageId;
     ts: string;
-    sender: T;
+    sender: string;
     text: string;
 };
 

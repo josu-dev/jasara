@@ -169,36 +169,6 @@ export function is_editable_el(el: EventTarget | null): el is HTMLElement {
     return false;
 }
 
-export function create_module_logger(name: string): {
-    info(message: string, ...data: any): void;
-    warn(message: string, ...data: any): void;
-    error(message: string, ...data: any): void;
-    nomodule(message: string, ...data: any): void;
-} {
-    const prefix_error = ' [' + name + '] ';
-    const prefix_info = ' [' + name + '] ';
-    const prefix_warn = ' [' + name + '] ';
-
-    return {
-        info(message: string, ...data: any): void {
-            const prefix = new Date().toLocaleTimeString() + prefix_info;
-            console['info'](prefix + message, ...data);
-        },
-        warn(message: string, ...data: any): void {
-            const prefix = new Date().toLocaleTimeString() + prefix_warn;
-            console['warn'](prefix + message, ...data);
-        },
-        error(message: string, ...data: any): void {
-            const prefix = new Date().toLocaleTimeString() + prefix_error;
-            console['error'](prefix + message, ...data);
-        },
-        nomodule(message: string, ...data: any): void {
-            const prefix = new Date().toLocaleTimeString();
-            console['info'](prefix + ' ' + message, ...data);
-        }
-    };
-}
-
 export function noop() { };
 
 export function now_utc(): string {
@@ -236,3 +206,92 @@ export type PropsNoChildren<T extends Record<string, any>> = T;
 export type PropsWithChildren<T extends Record<string, any>> = T & {
     children: Snippet;
 };
+
+export type Ok<T> = {
+    readonly is_ok: true,
+    readonly is_err: false,
+    readonly value: T;
+};
+
+export type Err<T> = {
+    readonly is_ok: false,
+    readonly is_err: true,
+    readonly error: T;
+};
+
+export type Result<T, E> = Ok<T> | Err<E>;
+
+export type AsyncResult<T, E> = Promise<Result<T, E>>;
+
+export function ok(): Ok<never>;
+export function ok<T>(value: T): Ok<T>;
+export function ok<T>(value?: T): Ok<T> {
+    return {
+        is_ok: true,
+        value: value as T,
+        is_err: false,
+    };
+}
+
+export function err(): Err<never>;
+export function err<E>(error: E): Err<E>;
+export function err<E>(error?: E): Err<E> {
+    return {
+        is_ok: false,
+        is_err: true,
+        error: error as E,
+    };
+}
+
+export type ExceptionError = {
+    type: 'exception',
+    value: unknown;
+};
+
+export type RetriesExceededError = {
+    type: 'retries_exceeded',
+    retries: number;
+};
+
+export type RetryError = ExceptionError | RetriesExceededError;
+
+export async function retry_on_undefined<Args extends any[], T, E>(
+    fn: (...args: Args) => Promise<Result<T | undefined, E>>,
+    retries: number,
+    interval: number,
+    ...args: Args
+): AsyncResult<T, E | RetryError> {
+    return new Promise((resolve) => {
+        let tries = 0;
+
+        async function recall() {
+            tries += 1;
+
+            let result: Result<T | undefined, E>;
+            try {
+                result = await fn(...args);
+            } catch (ex) {
+                resolve(err({ type: 'exception', value: ex }));
+                return;
+            }
+
+            if (result.is_err) {
+                return resolve(result);
+            }
+
+            if (result.value !== undefined) {
+                resolve(ok(result.value));
+                return;
+            }
+
+            if (tries > retries) {
+                resolve(err({ type: 'retries_exceeded', retries: retries }));
+                return;
+            }
+
+            setTimeout(recall, interval);
+        };
+
+        recall();
+    });
+}

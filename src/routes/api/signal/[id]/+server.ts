@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, params, getClientAddress }
 
     room = await get_room(room_id);
     if (room === undefined) {
-        error(400, `Room already exists`);
+        error(404, `Room not found`);
     }
 
     if (value.type === 'ANSWER') {

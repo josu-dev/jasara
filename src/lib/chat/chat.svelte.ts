@@ -1,16 +1,14 @@
-import { create_context, download_blob, get_human_file_type, now_utc, uuidv4 } from '$lib/utils.js';
+import { create_context, download_blob, err, get_human_file_type, now_utc, ok, uuidv4 } from '$lib/utils.js';
 import * as message from './message.js';
 import * as rtc from './rtc.js';
 import type { ConnectionState, MessageFileTransfer, MessageRenderable } from './shared.js';
 
 
-// Constants for chunked file transfer
-const CHUNK_SIZE = 16 * 1024; // 16KB chunks
-const BUFFER_FULL_THRESHOLD = 1 * 1024 * 1024; // 1MB buffer threshold
-const BUFFER_LOW_THRESHOLD = 512 * 1024; // 512KB low buffer threshold
+const RTC_BUFFER_FULL_THRESHOLD = 1 * 1024 * 1024; // 1 MB buffer threshold
+const RTC_BUFFER_LOW_THRESHOLD = 512 * 1024; // 512 KB low buffer threshold
 
 
-export function create_text_message<T extends string = string>(text: string, sender: T = 'me' as T): message.MessageText<T> {
+export function create_text_message(text: string, sender: string): message.MessageText {
     return {
         type: message.MESSAGE_TEXT,
         id: uuidv4(),
@@ -43,15 +41,18 @@ export function create_file_message(file: File, sender: string = "me"): MessageF
     };
 }
 
-const rtc_handshake: rtc.InitClientHandshake = {
+const rtc_handshake: rtc.RTCHandshakeHooks = {
     get_offer: async ({ room_id }) => {
         const r = await fetch(`/api/signal/${room_id}`);
-        if (!r.ok) {
-            return;
+        if (r.status === 404) {
+            return err({ type: 'room_not_found' });
+        }
+        if (r.status >= 300) {
+            return err({ type: 'server_error', status: r.status });
         }
 
         const { data: { offer } } = await r.json();
-        return { description: offer };
+        return ok({ description: offer });
     },
     send_offer: async ({ room_id, description }) => {
         const r = await fetch(`/api/signal/${room_id}`, {
@@ -59,24 +60,29 @@ const rtc_handshake: rtc.InitClientHandshake = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'OFFER', offer: description })
         });
-        if (!r.ok) {
-            return false;
+        if (r.ok) {
+            return ok(true);
         }
-
-        return true;
+        if (r.status === 400) {
+            return err({ type: 'room_already_exists' });
+        }
+        return err({ 'type': 'exception', value: void 0 });
     },
     get_answer: async ({ room_id, }) => {
         const r = await fetch(`/api/signal/${room_id}`);
-        if (!r.ok) {
-            return;
+        if (r.status === 404) {
+            return err({ type: 'room_not_found' });
+        }
+        if (r.status >= 300) {
+            return err({ type: 'server_error', status: r.status });
         }
 
         const { data: { answer } } = await r.json();
         if (answer == null) {
-            return;
+            return ok();
         }
 
-        return { description: answer };
+        return ok({ description: answer });
     },
     send_answer: async ({ room_id, description }) => {
         const r = await fetch(`/api/signal/${room_id}`, {
@@ -85,15 +91,20 @@ const rtc_handshake: rtc.InitClientHandshake = {
             body: JSON.stringify({ type: 'ANSWER', answer: description })
         });
         if (r.ok) {
-            return true;
+            return ok(true);
         }
-
-        return false;
+        if (r.status === 404) {
+            return err({ type: 'room_not_found' });
+        }
+        return err({ 'type': 'exception', value: void 0 });
     },
     get_ice_candidates: async ({ room_id, is_host, }) => {
         const r = await fetch(`/api/signal/${room_id}`);
-        if (!r.ok) {
-            return;
+        if (r.status === 404) {
+            return err({ type: 'room_not_found' });
+        }
+        if (r.status >= 300) {
+            return err({ type: 'server_error', status: r.status });
         }
 
         const { data } = await r.json();
@@ -105,7 +116,7 @@ const rtc_handshake: rtc.InitClientHandshake = {
             out = data.offer_candidates;
         }
 
-        return out;
+        return ok(out);
     },
     send_ice_candidate: async ({ room_id, is_host, candidate }) => {
         const r = await fetch(`/api/signal/${room_id}`, {
@@ -113,11 +124,13 @@ const rtc_handshake: rtc.InitClientHandshake = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'CANDIDATE', is_host: is_host, candidate: candidate })
         });
-        if (r.ok) {
-            return true;
+        if (r.status === 404) {
+            return err({ type: 'room_not_found' });
         }
-
-        return false;
+        if (r.status >= 300) {
+            return err({ type: 'server_error', status: r.status });
+        }
+        return ok(true);
     }
 };
 
@@ -187,20 +200,36 @@ function create_chat(initial: ChatInit) {
     }
 
     function on_connection_state(value: ConnectionState) {
+        const prev = connection_state;
         connection_state = value;
-        state.connecion_state = value;
-        state.not_connected = value !== 'Connected';
+
+        if (prev !== connection_state) {
+            state.connecion_state = value;
+            state.not_connected = value !== 'Connected';
+
+            if (value === 'Connecting') {
+                push_system_message(`Establishing connection...`);
+                return;
+            }
+            if (value === 'Connected') {
+                push_system_message(`Connection established`);
+                return;
+            }
+            if (value === 'Disconnected') {
+                push_system_message(`Disconnected`);
+                return;
+            }
+        }
     }
 
-    function on_channel_error(error: Error) {
-        console.warn(error);
+    function on_channel_error(error: RTCError) {
+        window.reportError(error)
     }
 
     function on_channel_message(data: rtc.ChannelMessage) {
         const msg = message.decode_message(data);
         if (msg === undefined) {
-            console.warn('Received invalid message:', data);
-            return;
+            throw new Error(`Invalid message recived '${data}'`)
         }
 
         switch (msg.type) {
@@ -244,7 +273,6 @@ function create_chat(initial: ChatInit) {
             case message.MESSAGE_FILE_CHUNK: {
                 const transfer = files_transfer.get(msg.id);
                 if (transfer === undefined) {
-                    console.warn('Orphan file chunk received:', msg);
                     return;
                 }
 
@@ -267,7 +295,6 @@ function create_chat(initial: ChatInit) {
             case message.MESSAGE_FILE_ABORT: {
                 const transfer = files_transfer.get(msg.id);
                 if (transfer === undefined) {
-                    console.warn('Orphan file abort received:', msg);
                     return;
                 }
 
@@ -279,7 +306,7 @@ function create_chat(initial: ChatInit) {
             }
 
             default: {
-                console.warn('Received unknown message:', msg);
+                throw new Error(`Unhandled message type '${(msg as any).type}'`);
             }
         }
     }
@@ -287,21 +314,45 @@ function create_chat(initial: ChatInit) {
     async function init_as_host(options: InitClientOptions) {
         room_id = options.room_id;
         is_host = true;
-
         error = void 0;
         connection_state = rtc.connectionState.Creating;
         sync_state();
 
-        await rtc.init({
+        push_system_message(`Creating room with id '${room_id}'...`);
+
+        const r = await rtc.init({
             room_id: room_id,
             is_host: true,
             handshake: rtc_handshake,
             on_channel_message: on_channel_message,
             on_connection_state: on_connection_state,
-            on_error: on_channel_error,
+            on_channel_error: on_channel_error,
         });
 
-        // push_system_message(create_text_message(`Room '${id}' created, establishing connection...`, 'system'));
+        if (r.is_err) {
+            switch (r.error.type) {
+                case 'room_already_exists': {
+                    push_system_message(`Room with id '${room_id}' already exists`);
+                    return;
+                }
+                case 'room_not_found': {
+                    push_system_message(`Room with id '${room_id}' not found`);
+                    return;
+                }
+                case 'server_error': {
+                    push_system_message(`Something went wrong with the server (status ${r.error.status})`);
+                    return;
+                }
+                case 'exception': {
+                    push_system_message(`Unhandled error`);
+                    return;
+                }
+                case 'retries_exceeded': {
+                    push_system_message(`Waited for too long`);
+                    return;
+                }
+            }
+        }
     }
 
     async function init_as_guest(options: InitClientOptions) {
@@ -311,16 +362,41 @@ function create_chat(initial: ChatInit) {
         connection_state = rtc.connectionState.Connecting;
         sync_state();
 
-        await rtc.init({
+        push_system_message(`Joining room with id '${room_id}'...`);
+
+        const r = await rtc.init({
             room_id: room_id,
             is_host: false,
             handshake: rtc_handshake,
             on_channel_message: on_channel_message,
             on_connection_state: on_connection_state,
-            on_error: on_channel_error,
+            on_channel_error: on_channel_error,
         });
 
-        // push_system_message(create_text_message(`Room '${id}' found, establishing connection...`, 'system'));
+        if (r.is_err) {
+            switch (r.error.type) {
+                case 'room_already_exists': {
+                    push_system_message(`Room with id '${room_id}' already exists`);
+                    return;
+                }
+                case 'room_not_found': {
+                    push_system_message(`Room with id '${room_id}' not found`);
+                    return;
+                }
+                case 'server_error': {
+                    push_system_message(`Something went wrong with the server (status ${r.error.status})`);
+                    return;
+                }
+                case 'exception': {
+                    push_system_message(`Unhandled error`);
+                    return;
+                }
+                case 'retries_exceeded': {
+                    push_system_message(`Waited for too long`);
+                    return;
+                }
+            }
+        }
     }
 
     function send_text_message(msg: message.MessageText): boolean {
@@ -334,7 +410,7 @@ function create_chat(initial: ChatInit) {
     }
 
     function send_text(text: string, onsend?: () => void) {
-        const msg = create_text_message(text);
+        const msg = create_text_message(text, 'me');
         if (!send_text_message(msg)) {
             return;
         }
@@ -349,14 +425,15 @@ function create_chat(initial: ChatInit) {
             return false;
         }
         files_transfer.set(msg.f_id, msg);
-        const chunks_total = Math.ceil(msg.f_size / CHUNK_SIZE);
+        const slice_size = message.FILE_CHUNK_SIZE;
+        const chunks_total = Math.ceil(msg.f_size / slice_size);
         msg.f_total_chunks = chunks_total;
         msg.ts_start = now_utc();
         rtc.send_message(message.encode_file_meta(msg)!);
         const f_bytes = new Uint8Array(await file.arrayBuffer());
         const chunks_queue: message.MessageFileChunk[] = [];
         for (let i = 0; i < chunks_total; i++) {
-            const chunk = f_bytes.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const chunk = f_bytes.slice(i * slice_size, (i + 1) * slice_size);
             chunks_queue.push({
                 type: message.MESSAGE_FILE_CHUNK,
                 id: msg.f_id,
@@ -373,17 +450,17 @@ function create_chat(initial: ChatInit) {
             }
 
             while (current_chunk_index < chunks_queue.length) {
-                if (data_channel!.bufferedAmount > BUFFER_FULL_THRESHOLD) {
+                if (data_channel!.bufferedAmount > RTC_BUFFER_FULL_THRESHOLD) {
                     is_paused = true;
                     const buffer_low_handler = () => {
-                        if (data_channel!.bufferedAmount <= BUFFER_LOW_THRESHOLD) {
+                        if (data_channel!.bufferedAmount <= RTC_BUFFER_LOW_THRESHOLD) {
                             data_channel!.removeEventListener('bufferedamountlow', buffer_low_handler);
                             is_paused = false;
                             setTimeout(send_next_chunks, 0);
                         }
                     };
 
-                    data_channel!.bufferedAmountLowThreshold = BUFFER_LOW_THRESHOLD;
+                    data_channel!.bufferedAmountLowThreshold = RTC_BUFFER_LOW_THRESHOLD;
                     data_channel!.addEventListener('bufferedamountlow', buffer_low_handler);
                     return;
                 }
@@ -455,7 +532,7 @@ function create_chat(initial: ChatInit) {
 
     async function deinit() {
         // TODO: improve this?
-        await rtc.destroy();
+        await rtc.deinit();
     }
 
     return {
@@ -486,7 +563,3 @@ export function use_chat_ctx(opts?: ChatInit): Chat {
 
     return chat_ctx.set(create_chat(opts));
 }
-
-
-// push_system_message(create_text_message(`Connected to room '${room_id}'`, "system"));
-// push_system_message(create_text_message(`Disconnected from room '${room_id}'`, "system"));

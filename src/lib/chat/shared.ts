@@ -30,10 +30,8 @@ export type MessageRenderable = message.MessageText | MessageFileTransfer;
 export type ConnectionState = rtc.ConnectionState;
 
 export type ChatProviderProps = PropsWithChildren<{
-    default?: {
-        messages?: MessageRenderable[];
-        room_id?: rtc.RoomId;
-    };
+    initial_messages?: MessageRenderable[];
+    initial_room_id?: rtc.RoomId;
 }>;
 
 export type ChatConnectBarProps = PropsNoChildren<object>;

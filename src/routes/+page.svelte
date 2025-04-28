@@ -1,19 +1,14 @@
 <script lang="ts">
   import * as Chat from '$lib/chat/index.js';
   import { Logo, Metadata } from '$lib/comps/index.js';
-  import { DEFAULT_MSG, DEFAULT_ROOM_ID } from '$lib/constants.js';
+  import { DEFAULT_ROOM_ID, DEFAULT_SYSTEM_MESSAGE } from '$lib/constants.js';
 
-  const default_messages = [Chat.create_text_message(DEFAULT_MSG, 'system')];
+  const default_messages = [Chat.create_text_message(DEFAULT_SYSTEM_MESSAGE, 'system')];
 </script>
 
 <Metadata description="Transfer things between devices, easily" />
 
-<Chat.Provider
-  default={{
-    messages: default_messages,
-    room_id: DEFAULT_ROOM_ID
-  }}
->
+<Chat.Provider initial_messages={default_messages} initial_room_id={DEFAULT_ROOM_ID}>
   <main
     class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden px-1 pb-1 font-sans sm:px-4 sm:pb-4"
   >
