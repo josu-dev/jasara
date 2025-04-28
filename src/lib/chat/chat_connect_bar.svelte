@@ -1,29 +1,14 @@
 <script lang="ts">
-  import type * as p2p from '$lib/internal/p2p.svelte.js';
-  import Plus from '@lucide/svelte/icons/plus';
-  import PowerOff from '@lucide/svelte/icons/power-off';
-  import Search from '@lucide/svelte/icons/search';
-  import IconButton from './IconButton.svelte';
+  import { Icon, IconButton } from '$lib/comps/index.js';
+  import { use_chat_ctx } from './chat.svelte.js';
+  import type { ChatConnectBarProps } from './shared.js';
 
-  type Props = {
-    connection_status: p2p.ConnectionStatus;
-    connection_error: string;
-    default_room_id?: string;
-    on_create: (room_id: string) => void;
-    on_connect: (room_id: string) => void;
-    on_disconnect: () => void;
-  };
+  let {}: ChatConnectBarProps = $props();
 
-  let {
-    connection_status: connectionStatus,
-    connection_error,
-    default_room_id = '',
-    on_create,
-    on_connect,
-    on_disconnect
-  }: Props = $props();
+  const chat = use_chat_ctx();
+  const connection_state = $derived(chat.current.connecion_state);
 
-  let room_id = $state(default_room_id);
+  let room_id = $state(chat.current.room_id);
 
   const connectionStatusToLabel = {
     Disconnected: 'Disconnected',
@@ -51,13 +36,13 @@
     </div>
 
     <div class="flex items-end gap-x-1">
-      {#if connectionStatus === 'Connected'}
+      {#if connection_state === 'Connected'}
         <IconButton
-          onclick={on_disconnect}
+          onclick={chat.deinit}
           title="Disconnect"
           class="bg-red-600/25! hover:bg-red-600/50!"
         >
-          <PowerOff />
+          <Icon.PowerOff />
         </IconButton>
       {:else}
         <IconButton
@@ -66,11 +51,11 @@
               alert('No room id must be between 1 and 16 characters');
               return;
             }
-            on_create(room_id);
+            chat.init_as_host({ room_id });
           }}
           title="Create"
         >
-          <Plus />
+          <Icon.Plus />
         </IconButton>
         <IconButton
           onclick={() => {
@@ -78,11 +63,11 @@
               alert('No room id must be between 1 and 16 characters');
               return;
             }
-            on_connect(room_id);
+            chat.init_as_guest({ room_id });
           }}
           title="Join"
         >
-          <Search />
+          <Icon.Search />
         </IconButton>
       {/if}
     </div>

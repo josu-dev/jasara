@@ -1,7 +1,7 @@
 import { assert, assert_exists, create_module_logger, noop } from '$lib/utils.js';
 
 
-export const connectionStatus = {
+export const connectionState = {
     Disconnected: 'Disconnected',
     TimedOut: 'TimedOut',
     Creating: 'Creating',
@@ -10,7 +10,7 @@ export const connectionStatus = {
     None: 'None'
 } as const;
 
-export type ConnectionStatus = typeof connectionStatus[keyof typeof connectionStatus];
+export type ConnectionState = typeof connectionState[keyof typeof connectionState];
 
 export type OnChannelError = (error: Error) => void;
 
@@ -18,7 +18,7 @@ export type ChannelMessage = ArrayBuffer;
 
 export type OnChannelMessage = (data: ChannelMessage) => void;
 
-export type OnConnectionStatus = (status: ConnectionStatus) => void;
+export type OnConnectionState = (status: ConnectionState) => void;
 
 export type RoomId = string;
 
@@ -149,10 +149,10 @@ let peer_connection: RTCPeerConnection | undefined = undefined;
 let data_channel: RTCDataChannel | undefined = undefined;
 let room_id = '';
 let is_host = false;
-let connection_status: ConnectionStatus = connectionStatus.None;
+let connection_status: ConnectionState = connectionState.None;
 let on_channel_error: OnChannelError = noop;
 let on_channel_message: OnChannelMessage = noop;
-let on_connection_state: OnConnectionStatus = noop;
+let on_connection_state: OnConnectionState = noop;
 
 function data_cannel_on_open() { }
 
@@ -182,7 +182,7 @@ type InitClientOptions = {
     is_host: boolean;
     on_channel_message: OnChannelMessage;
     on_error: OnChannelError;
-    on_connection_state: OnConnectionStatus;
+    on_connection_state: OnConnectionState;
     handshake: InitClientHandshake;
 };
 
@@ -203,9 +203,9 @@ export async function init(options: InitClientOptions) {
 
 
     if (is_host) {
-        connection_status = connectionStatus.Creating;
+        connection_status = connectionState.Creating;
     } else {
-        connection_status = connectionStatus.Connecting;
+        connection_status = connectionState.Connecting;
     }
     peer_connection = new RTCPeerConnection();
 
@@ -227,19 +227,19 @@ export async function init(options: InitClientOptions) {
         // TODO: improve this
         switch (peer_connection!.connectionState) {
             case 'connected':
-                on_connection_state(connectionStatus.Connected);
+                on_connection_state(connectionState.Connected);
                 break;
             case 'disconnected':
-                on_connection_state(connectionStatus.Disconnected);
+                on_connection_state(connectionState.Disconnected);
                 break;
             case 'failed':
             case 'closed':
                 break;
             case 'new':
-                on_connection_state(connectionStatus.None);
+                on_connection_state(connectionState.None);
                 break;
             case 'connecting':
-                on_connection_state(connectionStatus.Connecting);
+                on_connection_state(connectionState.Connecting);
                 break;
         }
     };
@@ -280,7 +280,7 @@ async function cleanup() {
         peer_connection = undefined;
     }
 
-    connection_status = connectionStatus.Disconnected;
+    connection_status = connectionState.Disconnected;
     on_connection_state(connection_status);
 }
 
@@ -294,5 +294,10 @@ export function get_data_channel() {
 
 export function send_message(data: ArrayBuffer): void {
     assert_exists(data_channel, 'Data channel not initialized or closed');
-    data_channel.send(data);
+    try {
+        data_channel.send(data);
+    }
+    catch (ex) {
+        console.warn(ex);
+    }
 }

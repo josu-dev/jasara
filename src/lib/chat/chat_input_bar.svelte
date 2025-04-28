@@ -1,27 +1,24 @@
 <script lang="ts">
-  import { is_editable_el, proccess_data_transfer } from '$lib/utils.js';
-  import Paperclip from '@lucide/svelte/icons/paperclip';
-  import SendHorizontal from '@lucide/svelte/icons/send-horizontal';
-  import IconButton from './IconButton.svelte';
+  import { Icon, IconButton } from '$lib/comps/index.js';
+  import { is_editable_el, noop, proccess_data_transfer } from '$lib/utils.js';
+  import { use_chat_ctx } from './chat.svelte.js';
+  import type { ChatInputBarProps } from './shared.js';
 
-  type Props = {
-    on_send_text: (text: string, reset?: () => void) => void;
-    on_send_files: (file: File[]) => void;
-    on_paste_files: (file: File[]) => void;
-    disabled?: boolean;
-  };
+  let {}: ChatInputBarProps = $props();
 
-  let { on_send_text, on_send_files, on_paste_files, disabled = false }: Props = $props();
+  const chat = use_chat_ctx();
 
+  let textarea_el: HTMLTextAreaElement;
   let raw_text = $state('');
+  let disabled = $derived(chat.current.not_connected);
 
   function send_text() {
-    on_send_text(raw_text, clear_text);
-    raw_text = '';
+    chat.send_text(raw_text, clear_text);
   }
 
   function clear_text() {
     raw_text = '';
+    textarea_el.parentElement!.dataset.text = '';
   }
 
   function on_input(files: FileList | null) {
@@ -29,9 +26,8 @@
       return;
     }
 
-    on_send_files([...files]);
+    chat.send_files([...files]);
   }
-  function noup() {}
 </script>
 
 <svelte:window
@@ -39,7 +35,7 @@
     if (is_editable_el(ev.target)) {
       return;
     }
-    proccess_data_transfer(ev.clipboardData, on_paste_files, on_send_text);
+    proccess_data_transfer(ev.clipboardData, chat.send_files, chat.send_text);
   }}
 />
 
@@ -51,7 +47,7 @@
       class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed"
     >
       <span class="sr-only">Attach file</span>
-      <Paperclip />
+      <Icon.Paperclip />
       <input
         id="file_input"
         type="file"
@@ -81,21 +77,21 @@
           if (ev.key === 'Enter' && !ev.shiftKey) {
             ev.preventDefault();
             send_text();
-            ev.currentTarget.parentElement!.dataset.text = '';
           }
         }}
         oninput={(ev) => (ev.currentTarget.parentElement!.dataset.text = ev.currentTarget.value)}
         onpaste={(ev) => {
           ev.stopPropagation();
-          proccess_data_transfer(ev.clipboardData, on_paste_files, noup);
+          proccess_data_transfer(ev.clipboardData, chat.send_files, noop);
         }}
         {disabled}
         bind:value={raw_text}
+        bind:this={textarea_el}
       ></textarea>
     </div>
 
     <IconButton onclick={send_text} title="Send file" {disabled}>
-      <SendHorizontal />
+      <Icon.SendHorizontal />
     </IconButton>
   </div>
 </div>

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { proccess_data_transfer } from '$lib/utils.js';
-  import FileText from '@lucide/svelte/icons/file-text';
-  import Image from '@lucide/svelte/icons/image';
+  import * as Icon from './icons/index.js';
 
   type Props = {
     on_files_drop: (files: File[]) => void;
@@ -96,13 +95,13 @@
   <div class="pointer-events-none hidden h-full flex-col items-center justify-center p-6">
     <div class="text-primary-100 grid w-full max-w-md items-center justify-center gap-x-4">
       <div class="-rotate-12">
-        <Image size="32" />
+        <Icon.Image size="32" />
       </div>
 
       <p class="text-center text-xl font-semibold text-pretty">Drop files here to send</p>
 
       <div class="rotate-12">
-        <FileText size="32" />
+        <Icon.FileText size="32" />
       </div>
     </div>
 

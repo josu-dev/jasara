@@ -1,0 +1,12 @@
+export { default as CircleOff } from '@lucide/svelte/icons/circle-off';
+export { default as File } from '@lucide/svelte/icons/file';
+export { default as FileText } from '@lucide/svelte/icons/file-text';
+export { default as Image } from '@lucide/svelte/icons/image';
+export { default as Paperclip } from '@lucide/svelte/icons/paperclip';
+export { default as Plus } from '@lucide/svelte/icons/plus';
+export { default as PowerOff } from '@lucide/svelte/icons/power-off';
+export { default as Rabbit } from '@lucide/svelte/icons/rabbit';
+export { default as Search } from '@lucide/svelte/icons/search';
+export { default as SendHorizontal } from '@lucide/svelte/icons/send-horizontal';
+export { default as SquareArrowDown } from '@lucide/svelte/icons/square-arrow-down';
+export { default as SquareX } from '@lucide/svelte/icons/square-x';

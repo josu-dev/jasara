@@ -1,3 +1,5 @@
+import { getContext, setContext, type Snippet } from 'svelte';
+
 export function format_hs_mm(ts: string): string {
     const date = new Date(ts);
 
@@ -50,7 +52,7 @@ export function get_human_file_type(name: string, mimetype: string): string {
 
 }
 
-export async function download_file(blob: Blob, filename: string): Promise<void> {
+export async function download_blob(blob: Blob, filename: string): Promise<void> {
     const blob_url = URL.createObjectURL(blob);
     try {
         const a = document.createElement('a');
@@ -206,3 +208,31 @@ export function now_utc(): string {
 export function unreachable(message: string, value: never): never {
     throw new Error(`Unreachable branch reached: ${message.replace('%s', JSON.stringify(value, null, 2))}`);
 }
+
+export function create_context<T>(key: string) {
+    const _key = Symbol(key);
+
+    function set(value: T): T {
+        return setContext(_key, value);
+    }
+
+    function get(): T {
+        return getContext(_key);
+    }
+
+    return {
+        set: set,
+        get: get
+    };
+}
+
+export function uuidv4(): string {
+    const out = crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(18)), b => b.toString(16).padStart(2, '0')).join('');
+    return out;
+}
+
+export type PropsNoChildren<T extends Record<string, any>> = T;
+
+export type PropsWithChildren<T extends Record<string, any>> = T & {
+    children: Snippet;
+};

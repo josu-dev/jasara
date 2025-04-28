@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as p2p from '$lib/internal/p2p.svelte.js';
+  import { Icon, IconButton } from '$lib/comps/index.js';
   import {
     ensure_protocol,
     format_file_size,
@@ -8,14 +8,11 @@
     is_like_link,
     parse_codeblock_content
   } from '$lib/utils';
-  import CircleOff from '@lucide/svelte/icons/circle-off';
-  import File from '@lucide/svelte/icons/file';
-  import SquareArrowDown from '@lucide/svelte/icons/square-arrow-down';
-  import SquareX from '@lucide/svelte/icons/square-x';
-  import IconButton from './IconButton.svelte';
+  import type { MessageRenderable } from './shared.js';
+  import { MESSAGE_FILE_TRANSFER, MESSAGE_TEXT } from './shared.js';
 
   type Props = {
-    msg: p2p.MessageRenderable;
+    msg: MessageRenderable;
     on_cancel_file: (file_id: string) => void;
     on_download_file: (file_id: string) => void;
   };
@@ -25,7 +22,7 @@
 
 <div class="flex items-start gap-2.5">
   <div
-    class="bg-base-100 shadow-base-100 relative mb-3 flex max-w-11/12 sm:max-w-4/5 flex-col px-3 pt-2 pb-1 shadow
+    class="bg-base-100 shadow-base-100 relative mb-3 flex max-w-11/12 flex-col px-3 pt-2 pb-1 shadow sm:max-w-[min(80%,40rem)]
     {msg.sender === 'me'
       ? 'ml-auto rounded-l-xl rounded-b-xl'
       : 'rounded-e-xl rounded-es-xl after:rounded-e-xl after:rounded-es-xl'}
@@ -38,7 +35,7 @@
         </span>
       </div>
     {/if}
-    {#if msg.type === p2p.MESSAGE_TEXT}
+    {#if msg.type === MESSAGE_TEXT}
       <div class="py-1 text-sm whitespace-break-spaces">
         {#if is_like_link(msg.text)}
           <a href={ensure_protocol(msg.text)} rel="refferer,noopener" class="link break-words">
@@ -50,11 +47,11 @@
           <p class="break-words">{msg.text}</p>
         {/if}
       </div>
-    {:else if msg.type === p2p.MESSAGE_FILE_TRANSFER}
+    {:else if msg.type === MESSAGE_FILE_TRANSFER}
       <div class="-mx-1 min-w-64 py-1 sm:min-w-96">
         <div class="flex rounded p-2 {msg.aborted ? 'bg-red-600/10' : 'bg-base-200'}">
           <div class="grid">
-            <File class="size-10 stroke-1" />
+            <Icon.File class="size-10 stroke-1" />
           </div>
           <div class="mx-2">
             <div>
@@ -79,13 +76,13 @@
                 }}
                 title="Download file"
               >
-                <SquareArrowDown class="size-8 stroke-1" />
+                <Icon.SquareArrowDown class="size-8 stroke-1" />
               </IconButton>
             </div>
           {:else if msg.aborted}
             <div class="ml-auto">
               <div class="grid size-11 place-items-center">
-                <CircleOff class="size-7 stroke-1" />
+                <Icon.CircleOff class="size-7 stroke-1" />
               </div>
             </div>
           {:else if msg.progress < 100}
@@ -96,7 +93,7 @@
                 }}
                 title="Cancel file"
               >
-                <SquareX class="size-8 stroke-1" />
+                <Icon.SquareX class="size-8 stroke-1" />
               </IconButton>
             </div>
           {/if}
