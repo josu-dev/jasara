@@ -1,6 +1,5 @@
 import { IpAddress, Ipv6Address } from '$lib/ip.js';
-import type { Room } from '$lib/server/rooms.js';
-import { add_room_candidate, create_room, get_room, set_room_answer } from '$lib/server/rooms.js';
+import { add_room_candidate, create_room, delete_room, get_room, set_room_answer } from '$lib/server/rooms.js';
 import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { z } from 'zod';
 
@@ -28,15 +27,19 @@ export const POST: RequestHandler = async ({ request, params, getClientAddress }
     const raw = await request.json();
     const result = await roomPostSchema.safeParseAsync(raw);
     if (!result.success) {
-        console.error(result.error);
         error(400, `Invalid data`);
     }
 
     const value = result.data;
 
-    let room: Room | undefined;
+    if (value.type === 'CANCEL') {
+        await delete_room(room_id);
+
+        return json({ success: true });
+    }
+
     if (value.type === 'OFFER') {
-        room = await create_room(room_id, value.offer);
+        const room = await create_room(room_id, value.offer);
         if (room === undefined) {
             error(400, `Room already exists`);
         }
@@ -44,7 +47,7 @@ export const POST: RequestHandler = async ({ request, params, getClientAddress }
         return json({ success: true });
     }
 
-    room = await get_room(room_id);
+    const room = await get_room(room_id);
     if (room === undefined) {
         error(404, `Room not found`);
     }
@@ -88,6 +91,9 @@ const roomPostSchema = z.discriminatedUnion('type', [
             type: z.literal('offer'),
             sdp: z.string()
         })
+    }),
+    z.object({
+        'type': z.literal('CANCEL'),
     }),
     z.object({
         'type': z.literal('ANSWER'),

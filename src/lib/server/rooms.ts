@@ -46,15 +46,15 @@ export async function create_room(room_id: string, offer: NonNullable<Room['offe
     return room;
 }
 
+export async function delete_room(room_id: string): Promise<void> {
+    const k = ROOM_PREFIX + room_id;
+    await kv.del_obj(k);
+}
+
 export async function set_room_answer(room_id: string, answer: NonNullable<Room['answer']>): Promise<void> {
     const k = ROOM_PREFIX + room_id;
     await kv.set_field(k, '$.answer', answer);
 }
-
-// export async function set_room_offer(room_id: string, offer: NonNullable<Room['offer']>): Promise<void> {
-//     const k = ROOM_PREFIX + room_id;
-//     await kv.set_field(k, '$.offer', offer);
-// }
 
 export async function add_room_candidate(room_id: string, candidate: RTCIceCandidateInit, is_host: boolean): Promise<void> {
     const k = ROOM_PREFIX + room_id;

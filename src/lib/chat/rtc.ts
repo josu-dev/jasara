@@ -26,6 +26,9 @@ export type RoomId = string;
 const ROOM_NOT_FOUND_ERROR = 'room_not_found';
 const ROOM_ALREADY_EXISTS_ERROR = 'room_already_exists';
 const SERVER_ERROR = 'server_error';
+const STALE_ERROR = 'stale_error';
+
+type StaleError = { type: typeof STALE_ERROR; value: unknown; };
 
 type RoomNotFoundError = { type: typeof ROOM_NOT_FOUND_ERROR; };
 
@@ -37,9 +40,15 @@ type GetOffer = (args_0: { room_id: RoomId; }) => AsyncResult<{ description: RTC
 
 type SendOffer = (args_0: { room_id: RoomId; description: RTCSessionDescriptionInit; }) => AsyncResult<true, RoomAlreadyExistsError | ServerError | ExceptionError>;
 
+type CancelOffer = (args_0: { room_id: RoomId; }) => AsyncResult<true, ServerError | ExceptionError>;
+
 type GetAnswer = (args_0: { room_id: RoomId; }) => AsyncResult<undefined | { description: RTCSessionDescriptionInit; }, RoomNotFoundError | ServerError | ExceptionError>;
 
 type SendAnswer = (args_0: { room_id: RoomId; description: RTCSessionDescriptionInit; }) => AsyncResult<true, RoomNotFoundError | ServerError | ExceptionError>;
+
+function exception_is_peer_connection_closed(value: unknown) : value is DOMException {
+    return value instanceof DOMException && value.name === 'InvalidStateError';
+}
 
 async function create_room(pc: RTCPeerConnection, room_id: RoomId, send_offer: SendOffer, get_answer: GetAnswer) {
     const description = await pc.createOffer();
@@ -83,7 +92,7 @@ type GetIceCandidates = (args_0: { room_id: RoomId, is_host: boolean; }) => Asyn
 
 type SendIceCandidate = (args_0: { room_id: RoomId, is_host: boolean, candidate: RTCIceCandidate; }) => AsyncResult<true, RoomNotFoundError | ServerError | ExceptionError>;
 
-async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_host: boolean, get_ice_candidate: GetIceCandidates): AsyncResult<true, RetryError | RoomNotFoundError | ServerError | ExceptionError> {
+async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_host: boolean, get_ice_candidates: GetIceCandidates): AsyncResult<true, RetryError | RoomNotFoundError | ServerError | ExceptionError | StaleError> {
     return new Promise((resolve) => {
         let tries = 0;
         const get_arg: Parameters<GetIceCandidates>[0] = {
@@ -98,28 +107,28 @@ async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_ho
 
             tries += 1;
 
-            let result: Awaited<ReturnType<GetIceCandidates>>;
-            try {
-                result = await get_ice_candidate(get_arg);
-            } catch (ex) {
-                return resolve(err<ExceptionError>({ type: 'exception', value: ex }));
-            }
+            const result = await get_ice_candidates(get_arg);
             if (result.is_err) {
                 return resolve(result);
             }
+
             if (result.value !== undefined) {
                 for (const candidate of result.value) {
                     const ice_candidate = new RTCIceCandidate(candidate);
                     try {
                         await pc.addIceCandidate(ice_candidate);
                     } catch (ex) {
+                        if (exception_is_peer_connection_closed(ex)) {
+                            return resolve(err({ type: 'stale_error', value: ex }));
+                        }
+    
                         window.reportError(ex);
                     }
                 }
             }
 
             if (tries > ICE_CANDIDATES_POLL_RETRIES) {
-                return resolve(err<RetryError>({ type: 'retries_exceeded', retries: ICE_CANDIDATES_POLL_RETRIES }));
+                return resolve(err({ type: 'retries_exceeded', retries: ICE_CANDIDATES_POLL_RETRIES }));
             }
 
             setTimeout(recall, ICE_CANDIDATES_POLL_INTERVAL);
@@ -163,9 +172,65 @@ function global_dc_on_message(event: MessageEvent) {
     on_channel_message(data);
 }
 
+function init_global_pc(room_id: RoomId, is_host: boolean, send_ice_candidate: SendIceCandidate) {
+    const pc = new RTCPeerConnection();
+    global_pc = pc;
+
+    pc.onicecandidate = async (event) => {
+        const candidate = event.candidate;
+        if (candidate === null) {
+            return;
+        }
+
+        await send_ice_candidate({ room_id, is_host, candidate });
+    };
+
+    pc.onconnectionstatechange = (event) => {
+        const pc = event.target as RTCPeerConnection;
+        // TODO: improve this
+        switch (pc.connectionState) {
+            case 'connected':
+                on_connection_state(connectionState.Connected);
+                break;
+            case 'disconnected':
+                on_connection_state(connectionState.Disconnected);
+                break;
+            case 'failed':
+            case 'closed':
+                break;
+            case 'new':
+                on_connection_state(connectionState.None);
+                break;
+            case 'connecting':
+                on_connection_state(connectionState.Connecting);
+                break;
+        }
+    };
+
+    if (is_host) {
+        global_dc = pc.createDataChannel('chat');
+        global_dc.onopen = global_dc_on_open;
+        global_dc.onclose = global_dc_on_close;
+        global_dc.onerror = global_dc_on_error;
+        global_dc.onmessage = global_dc_on_message;
+    }
+    else {
+        pc.ondatachannel = (event) => {
+            global_dc = event.channel;
+            global_dc.onopen = global_dc_on_open;
+            global_dc.onclose = global_dc_on_close;
+            global_dc.onerror = global_dc_on_error;
+            global_dc.onmessage = global_dc_on_message;
+        };
+    }
+
+    return pc;
+}
+
 export type RTCHandshakeHooks = {
     get_offer: GetOffer;
     send_offer: SendOffer;
+    cancel_offer: CancelOffer;
     get_answer: GetAnswer;
     send_answer: SendAnswer;
     get_ice_candidates: GetIceCandidates;
@@ -190,79 +255,47 @@ export async function init(options: InitRTCOptions) {
     const {
         get_offer,
         send_offer,
+        cancel_offer,
         get_answer,
         send_answer,
         get_ice_candidates,
         send_ice_candidate
     } = options.handshake;
 
-    global_pc = new RTCPeerConnection();
+    const pc = init_global_pc(room_id, is_host, send_ice_candidate);
 
-    global_pc.onicecandidate = async (event) => {
-        const candidate = event.candidate;
-        if (candidate === null) {
-            return;
+    try {
+        if (is_host) {
+            on_connection_state(connectionState.Creating);
+            const r = await create_room(pc, room_id, send_offer, get_answer);
+            if (r.is_err) {
+                await cleanup();
+                return r;
+            }
+        }
+        else {
+            on_connection_state(connectionState.Connecting);
+            const r = await join_room(pc, room_id, get_offer, send_answer);
+            if (r.is_err) {
+                await cleanup();
+                return r;
+            }
         }
 
-        await send_ice_candidate({ room_id, is_host, candidate });
-    };
-
-    global_pc.onconnectionstatechange = (event) => {
-        const pc = event.target as RTCPeerConnection;
-        // TODO: improve this
-        switch (pc.connectionState) {
-            case 'connected':
-                on_connection_state(connectionState.Connected);
-                break;
-            case 'disconnected':
-                on_connection_state(connectionState.Disconnected);
-                break;
-            case 'failed':
-            case 'closed':
-                break;
-            case 'new':
-                on_connection_state(connectionState.None);
-                break;
-            case 'connecting':
-                on_connection_state(connectionState.Connecting);
-                break;
+        const r_ice = await poll_ice_candidates(pc, room_id, is_host, get_ice_candidates);
+        if (r_ice.is_err) {
+            await cleanup();
         }
-    };
 
-    if (is_host) {
-        global_dc = global_pc.createDataChannel('chat');
-        global_dc.onopen = global_dc_on_open;
-        global_dc.onclose = global_dc_on_close;
-        global_dc.onerror = global_dc_on_error;
-        global_dc.onmessage = global_dc_on_message;
+        return r_ice;
     }
-    else {
-        global_pc.ondatachannel = (event) => {
-            global_dc = event.channel;
-            global_dc.onopen = global_dc_on_open;
-            global_dc.onclose = global_dc_on_close;
-            global_dc.onerror = global_dc_on_error;
-            global_dc.onmessage = global_dc_on_message;
-        };
-    }
-
-    if (is_host) {
-        on_connection_state(connectionState.Creating);
-        const r = await create_room(global_pc, room_id, send_offer, get_answer);
-        if (r.is_err) {
-            return r;
+    catch (ex) {
+        if (pc !== global_pc) {
+            return err<StaleError>({ type: 'stale_error', value: ex });
         }
-    }
-    else {
-        on_connection_state(connectionState.Connecting);
-        const r = await join_room(global_pc, room_id, get_offer, send_answer);
-        if (r.is_err) {
-            return r;
-        }
-    }
 
-    const r_ice = await poll_ice_candidates(global_pc, room_id, is_host, get_ice_candidates);
-    return r_ice;
+        return err<ExceptionError>({ type: 'exception', value: ex });
+    }
 }
 
 async function cleanup() {
@@ -275,8 +308,6 @@ async function cleanup() {
         global_pc.close();
         global_pc = undefined;
     }
-
-    on_connection_state(connectionState.None);
 }
 
 export async function deinit() {

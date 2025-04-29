@@ -12,7 +12,7 @@
   <main
     class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden px-1 pb-1 font-sans sm:px-4 sm:pb-4"
   >
-    <div class="flex flex-none justify-between px-1 py-1 sm:py-2">
+    <div class="flex flex-none justify-between py-1 sm:py-2 sm:px-1">
       <div class="flex items-center gap-x-1.5 sm:gap-2">
         <Logo class="mb-0.5" />
         <h1

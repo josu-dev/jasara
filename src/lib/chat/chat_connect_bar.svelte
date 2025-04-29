@@ -1,75 +1,117 @@
 <script lang="ts">
   import { Icon, IconButton } from '$lib/comps/index.js';
+  import type { Component } from 'svelte';
   import { use_chat_ctx } from './chat.svelte.js';
   import type { ChatConnectBarProps } from './shared.js';
 
   let {}: ChatConnectBarProps = $props();
 
   const chat = use_chat_ctx();
-  const connection_state = $derived(chat.current.connecion_state);
 
   let room_id = $state(chat.current.room_id);
 
-  const connectionStatusToLabel = {
-    Disconnected: 'Disconnected',
-    TimedOut: 'Connection timed out',
-    Connecting: 'Connecting...',
-    Creating: 'Creating room...',
-    Connected: 'Connected successfully!',
-    None: 'None'
-  } as const;
+  const is_host = $derived(chat.current.is_host);
+  const connection_state = $derived(chat.current.connecion_state);
+  const is_loading = $derived(connection_state === 'Connecting' || connection_state === 'Creating');
+  const is_host_loading = $derived(is_host && is_loading);
+  const is_guest_loading = $derived(!is_host && is_loading);
+
+  function on_create() {
+    if (room_id.length < 1 || room_id.length > 16) {
+      alert('No room id must be between 1 and 16 characters');
+      return;
+    }
+    chat.init_as_host({ room_id });
+  }
+
+  function on_join() {
+    if (room_id.length < 1 || room_id.length > 16) {
+      alert('No room id must be between 1 and 16 characters');
+      return;
+    }
+    chat.init_as_guest({ room_id });
+  }
+
+  function on_cancel() {
+    chat.deinit();
+  }
+
+  function on_leave() {
+    chat.deinit();
+  }
 </script>
 
-<div class="">
-  <div class="flex items-center gap-x-2">
-    <div class="max-w-40 flex-1 sm:max-w-64">
-      <label for="room_id" class="sr-only">Room ID</label>
-      <input
-        id="room_id"
-        type="text"
-        placeholder="Room ID"
-        minlength="1"
-        maxlength="16"
-        class="border-border w-full rounded border bg-transparent px-2 py-1 focus:ring-0 focus:outline-none"
-        bind:value={room_id}
-      />
-    </div>
+{#snippet ConnectButton({
+  text,
+  onclick,
+  IconNormal,
+  loading,
+  hidden
+}: {
+  text: string;
+  onclick: () => void;
+  IconNormal: Component;
+  loading: boolean;
+  hidden: boolean;
+})}
+  <IconButton
+    {onclick}
+    title={text}
+    data-hidden={hidden}
+    data-loading={loading}
+    class="data-[hidden=true]:hidden data-[loading=true]:cursor-default data-[loading=true]:hover:bg-transparent"
+  >
+    <IconNormal data-hide={loading} class="data-[hide=true]:hidden" />
+    <Icon.Ellipsis
+      data-show={loading}
+      class="hidden translate-y-[3px] *:animate-bounce  data-[show=true]:block *:nth-1:[animation-delay:0s] *:nth-2:[animation-delay:0.15s] *:nth-3:[animation-delay:-0.3s]"
+    />
+  </IconButton>
+{/snippet}
 
-    <div class="flex items-end gap-x-1">
-      {#if connection_state === 'Connected'}
-        <IconButton
-          onclick={chat.deinit}
-          title="Disconnect"
-          class="bg-red-600/25! hover:bg-red-600/50!"
-        >
-          <Icon.PowerOff />
-        </IconButton>
-      {:else}
-        <IconButton
-          onclick={() => {
-            if (room_id.length < 1 || room_id.length > 16) {
-              alert('No room id must be between 1 and 16 characters');
-              return;
-            }
-            chat.init_as_host({ room_id });
-          }}
-          title="Create"
-        >
-          <Icon.Plus />
-        </IconButton>
-        <IconButton
-          onclick={() => {
-            if (room_id.length < 1 || room_id.length > 16) {
-              alert('No room id must be between 1 and 16 characters');
-              return;
-            }
-            chat.init_as_guest({ room_id });
-          }}
-          title="Join"
-        >
-          <Icon.Search />
-        </IconButton>
-      {/if}
-    </div>
+<div class="flex items-center gap-x-2">
+  <div class="max-w-40 flex-1 sm:max-w-64">
+    <label for="room_id" class="sr-only">Room ID</label>
+    <input
+      id="room_id"
+      type="text"
+      placeholder="Room ID"
+      minlength="1"
+      maxlength="16"
+      readonly={is_loading}
+      class="border-border w-full rounded border bg-transparent px-2 py-1 autofill:bg-transparent focus:ring-0 focus:outline-none"
+      bind:value={room_id}
+    />
+  </div>
+
+  <div class="flex items-end gap-x-1">
+    {#if connection_state === 'Connected'}
+      <IconButton onclick={on_leave} title="Disconnect" class="hover:bg-red-600/50!">
+        <Icon.Unplug />
+      </IconButton>
+    {:else}
+      {@render ConnectButton({
+        text: 'Create',
+        onclick: on_create,
+        hidden: is_guest_loading,
+        loading: is_host_loading,
+        IconNormal: Icon.Plus
+      })}
+      <IconButton
+        onclick={on_cancel}
+        title="Cancel"
+        data-show={is_loading}
+        class="hidden hover:bg-red-600/50! data-[show=true]:block"
+      >
+        <Icon.X />
+      </IconButton>
+      {@render ConnectButton({
+        text: 'Join',
+        onclick: on_join,
+        hidden: is_host_loading,
+        loading: is_guest_loading,
+        IconNormal: Icon.Search
+      })}
+    {/if}
   </div>
 </div>

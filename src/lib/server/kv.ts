@@ -17,6 +17,10 @@ export async function get_obj<T extends Record<string, any>>(key: string): Promi
     return v as T;
 }
 
+export async function del_obj(key: string) {
+    return redis.json.del(key, '$')
+}
+
 export async function set_obj(key: string, obj: Record<string, any>) {
     return redis.json.set(key, '$', obj);
 }

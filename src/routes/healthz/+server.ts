@@ -18,14 +18,13 @@ export const GET: RequestHandler = async () => {
             out.status = 'unhealthy';
             out.message = 'unexpected redis response';
         }
-        await kv.redis.set('healtz:last', now);
-        await kv.redis.get('healtz:last');
+        await kv.redis.set('healthz:last', now);
+        await kv.redis.get('healthz:last');
     }
     catch (ex) {
         status = 503;
         out.status = 'unhealthy';
         out.message = (ex instanceof Error ? (ex.message) : '') || 'unexpected exception';
-        console.log(ex)
     }
 
     return json(out, { status: status });

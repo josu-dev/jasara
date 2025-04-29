@@ -221,6 +221,34 @@ export type Err<T> = {
 
 export type Result<T, E> = Ok<T> | Err<E>;
 
+export type MaybePromise<T> = T | Promise<T>;
+
+export type ExtractOk<T> =
+    T extends (...args: any[]) => MaybePromise<infer R>
+    ? R extends Result<any, any>
+    ? Extract<R, { is_ok: true; }>
+    : never
+    :
+    T extends MaybePromise<infer R>
+    ? R extends Result<any, any>
+    ? Extract<R, { is_ok: true; }>
+    : never
+    :
+    never;
+
+export type ExtractErr<T> =
+    T extends (...args: any[]) => MaybePromise<infer R>
+    ? R extends Result<any, any>
+    ? Extract<R, { is_err: true; }>
+    : never
+    :
+    T extends MaybePromise<infer R>
+    ? R extends Result<any, any>
+    ? Extract<R, { is_err: true; }>
+    : never
+    :
+    never;
+
 export type AsyncResult<T, E> = Promise<Result<T, E>>;
 
 export function ok(): Ok<never>;
