@@ -66,7 +66,7 @@
       after:invisible after:max-h-[5lh] after:min-h-[1lh] after:px-3.5 after:py-2.5 after:break-all after:whitespace-break-spaces after:text-inherit
       after:content-[attr(data-text)_'_'] after:[grid-area:1/1/2/2] [&>textarea]:[grid-area:1/1/2/2]"
     >
-      <label for="text-input" class="sr-only">Message</label>
+      <label for="text_input" class="sr-only">Message</label>
       <textarea
         id="text_input"
         placeholder="Message"

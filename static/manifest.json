@@ -1,0 +1,58 @@
+{
+  "background_color": "#0a0a0a",
+  "description": "Transfer things between devices, easily.",
+  "dir": "ltr",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "id": "/v1/launch",
+  "lang": "en",
+  "name": "jasara",
+  "orientation": "portrait",
+  "short_name": "jasara",
+  "start_url": "/",
+  "theme_color": "#f0b100",
+  "icons": [
+    {
+      "src": "/images/android/android-launchericon-512-512.png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/images/android/android-launchericon-192-192.png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/images/android/android-launchericon-144-144.png",
+      "sizes": "144x144"
+    },
+    {
+      "src": "/images/android/android-launchericon-96-96.png",
+      "sizes": "96x96"
+    },
+    {
+      "src": "/images/android/android-launchericon-72-72.png",
+      "sizes": "72x72"
+    },
+    {
+      "src": "/images/android/android-launchericon-48-48.png",
+      "sizes": "48x48"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/screenshot_mobile.png",
+      "type": "image/png",
+      "sizes": "412x915",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/images/screenshot_desktop.png",
+      "type": "image/png",
+      "sizes": "1366x1024",
+      "form_factor": "wide"
+    }
+  ]
+}
