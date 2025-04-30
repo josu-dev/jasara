@@ -4,6 +4,6 @@
 	let { children } = $props();
 </script>
 
-<div class="bg-base-100 h-full">
+<div class="h-full">
 	{@render children()}
 </div>
