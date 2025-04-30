@@ -10,9 +10,9 @@
   ],
   "id": "/v1/launch",
   "lang": "en",
-  "name": "jasara",
+  "name": "Jasara",
   "orientation": "portrait",
-  "short_name": "jasara",
+  "short_name": "Jasara",
   "start_url": "/",
   "theme_color": "#f0b100",
   "icons": [

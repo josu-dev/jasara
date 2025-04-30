@@ -8,7 +8,8 @@ export const DEFAULT_SEO = {
     icon: '/favicon.svg',
     manifest: '/manifest.json',
     site_name: SITE_NAME,
-    theme_color: '#f0b100',
+    // same as background_color for mobile top bar otherwise change to '#f0b100'
+    theme_color: '#0a0a0a',
     background_color: '#0a0a0a',
     title_default: SITE_NAME,
     title_template: '%s - ' + SITE_NAME,
