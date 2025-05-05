@@ -1,8 +1,10 @@
 <script lang="ts">
   import { Icon, IconButton } from '$lib/comps/index.js';
+  import { ROOM_ID_MAX_LENGTH, ROOM_ID_MIN_LENGTH } from '$lib/constants.js';
   import type { Component } from 'svelte';
   import { use_chat_ctx } from './chat.svelte.js';
   import type { ChatConnectBarProps } from './shared.js';
+  import { CONNECTION_STATE } from './shared.js';
 
   let {}: ChatConnectBarProps = $props();
 
@@ -12,32 +14,45 @@
 
   const is_host = $derived(chat.current.is_host);
   const connection_state = $derived(chat.current.connecion_state);
-  const is_loading = $derived(connection_state === 'Connecting' || connection_state === 'Creating');
+  const is_connected = $derived(connection_state === CONNECTION_STATE.CONNECTED);
+  const is_loading = $derived(
+    connection_state === CONNECTION_STATE.CONNECTING ||
+      connection_state === CONNECTION_STATE.CREATING ||
+      connection_state === CONNECTION_STATE.SEARCHING,
+  );
   const is_host_loading = $derived(is_host && is_loading);
   const is_guest_loading = $derived(!is_host && is_loading);
 
+  function validate_room_id(value: string): boolean {
+    if (value.length < ROOM_ID_MIN_LENGTH || value.length > ROOM_ID_MAX_LENGTH) {
+      alert(`Room id must be between ${ROOM_ID_MIN_LENGTH} and ${ROOM_ID_MAX_LENGTH} characters`);
+      return false;
+    }
+    return true;
+  }
+
   function on_create() {
-    if (room_id.length < 1 || room_id.length > 16) {
-      alert('No room id must be between 1 and 16 characters');
+    if (!validate_room_id(room_id)) {
       return;
     }
-    chat.init_as_host({ room_id });
+
+    chat.connect_host({ room_id });
   }
 
   function on_join() {
-    if (room_id.length < 1 || room_id.length > 16) {
-      alert('No room id must be between 1 and 16 characters');
+    if (!validate_room_id(room_id)) {
       return;
     }
-    chat.init_as_guest({ room_id });
+
+    chat.connect_guest({ room_id });
   }
 
   function on_cancel() {
-    chat.deinit();
+    chat.cancel_connect();
   }
 
-  function on_leave() {
-    chat.deinit();
+  function on_disconnect() {
+    chat.disconnect();
   }
 </script>
 
@@ -46,7 +61,7 @@
   onclick,
   IconNormal,
   loading,
-  hidden
+  hidden,
 }: {
   text: string;
   onclick: () => void;
@@ -85,8 +100,8 @@
   </div>
 
   <div class="flex items-end gap-x-1">
-    {#if connection_state === 'Connected'}
-      <IconButton onclick={on_leave} title="Disconnect" class="hover:bg-red-600/50!">
+    {#if is_connected}
+      <IconButton onclick={on_disconnect} title="Disconnect" class="hover:bg-red-600/50!">
         <Icon.Unplug />
       </IconButton>
     {:else}
@@ -95,7 +110,7 @@
         onclick: on_create,
         hidden: is_guest_loading,
         loading: is_host_loading,
-        IconNormal: Icon.Plus
+        IconNormal: Icon.Plus,
       })}
       <IconButton
         onclick={on_cancel}
@@ -110,7 +125,7 @@
         onclick: on_join,
         hidden: is_host_loading,
         loading: is_guest_loading,
-        IconNormal: Icon.Search
+        IconNormal: Icon.Search,
       })}
     {/if}
   </div>

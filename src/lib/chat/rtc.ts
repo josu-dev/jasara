@@ -1,113 +1,284 @@
-import type { AsyncResult, ExceptionError, RetryError } from '$lib/utils.js';
-import { err, noop, ok, retry_on_undefined } from '$lib/utils.js';
+import type { AsyncResult, Err, NetworkError, Ok, RetryError } from '$lib/utils.js';
+import { err, noop, ok } from '$lib/utils.js';
 
 
 const ANSWER_POLL_INTERVAL = 0.5 * 1000;
 const ANSWER_POLL_RETRIES = 60;
-const OFFER_POLL_INTERVAL = 0.5 * 1000;
-const OFFER_POLL_RETRIES = 60;
 const ICE_CANDIDATES_POLL_INTERVAL = 0.5 * 1000;
 const ICE_CANDIDATES_POLL_RETRIES = 60;
 
-export const connectionState = {
-    Disconnected: 'Disconnected',
-    TimedOut: 'TimedOut',
-    Creating: 'Creating',
-    Connecting: 'Connecting',
-    Connected: 'Connected',
-    None: 'None'
-} as const;
-
-export type ConnectionState = typeof connectionState[keyof typeof connectionState];
-
-export type RoomId = string;
-
-
-const ROOM_NOT_FOUND_ERROR = 'room_not_found';
-const ROOM_ALREADY_EXISTS_ERROR = 'room_already_exists';
-const SERVER_ERROR = 'server_error';
-const STALE_ERROR = 'stale_error';
-
-type StaleError = { type: typeof STALE_ERROR; value: unknown; };
-
-type RoomNotFoundError = { type: typeof ROOM_NOT_FOUND_ERROR; };
-
-type RoomAlreadyExistsError = { type: typeof ROOM_ALREADY_EXISTS_ERROR; };
-
-type ServerError = { type: typeof SERVER_ERROR, status: number; };
-
-type GetOffer = (args_0: { room_id: RoomId; }) => AsyncResult<{ description: RTCSessionDescriptionInit; }, RoomNotFoundError | ServerError | ExceptionError>;
-
-type SendOffer = (args_0: { room_id: RoomId; description: RTCSessionDescriptionInit; }) => AsyncResult<true, RoomAlreadyExistsError | ServerError | ExceptionError>;
-
-type CancelOffer = (args_0: { room_id: RoomId; }) => AsyncResult<true, ServerError | ExceptionError>;
-
-type GetAnswer = (args_0: { room_id: RoomId; }) => AsyncResult<undefined | { description: RTCSessionDescriptionInit; }, RoomNotFoundError | ServerError | ExceptionError>;
-
-type SendAnswer = (args_0: { room_id: RoomId; description: RTCSessionDescriptionInit; }) => AsyncResult<true, RoomNotFoundError | ServerError | ExceptionError>;
-
-function exception_is_peer_connection_closed(value: unknown) : value is DOMException {
+function exception_is_peer_connection_closed(value: unknown): value is DOMException {
     return value instanceof DOMException && value.name === 'InvalidStateError';
 }
 
-async function create_room(pc: RTCPeerConnection, room_id: RoomId, send_offer: SendOffer, get_answer: GetAnswer) {
-    const description = await pc.createOffer();
-    await pc.setLocalDescription(description);
+const ABORTED_ERROR = 'aborted';
+type AbortedError = { tag: typeof ABORTED_ERROR; value?: unknown; };
 
-    const offer = await send_offer({ room_id, description });
-    if (offer.is_err) {
-        return offer;
-    }
+const OFFER_FAILED_ERROR = 'offer_failed';
+type OfferFailerError = { tag: typeof OFFER_FAILED_ERROR; };
 
-    const answer = await retry_on_undefined(get_answer, ANSWER_POLL_RETRIES, ANSWER_POLL_INTERVAL, { room_id });
-    if (answer.is_err) {
-        return answer;
-    }
+const ANSWER_FAILED_ERROR = 'answer_failed';
+type AnswerFailedError = { tag: typeof ANSWER_FAILED_ERROR; };
 
-    await pc.setRemoteDescription(new RTCSessionDescription(answer.value.description));
+const CANDIDATE_FAILED_ERROR = 'candidate_failed';
+type CandidateFailedError = { tag: typeof CANDIDATE_FAILED_ERROR; };
 
-    return ok(true);
+export type RTCSignalingProvider<T extends Record<string, any> = Record<string, any>> = {
+    cancel_offer: (
+        (args_0: { meta: T; }) => AsyncResult<true, NetworkError>
+    );
+    get_offer: (
+        (args_0: { meta: T; }) => AsyncResult<{ description: RTCSessionDescriptionInit; }, NetworkError>
+    );
+    send_offer: (
+        (args_0: { meta: T; description: RTCSessionDescriptionInit; }) => AsyncResult<true, NetworkError>
+    );
+    cancel_answer: (
+        (args_0: { meta: T; }) => AsyncResult<true, NetworkError>
+    );
+    get_answer: (
+        (args_0: { meta: T; }) => AsyncResult<undefined | { description: RTCSessionDescriptionInit; }, NetworkError>
+    );
+    send_answer: (
+        (args_0: { meta: T; description: RTCSessionDescriptionInit; }) => AsyncResult<true, NetworkError>
+    );
+    get_ice_candidates: (
+        (args_0: { meta: T; }) => AsyncResult<undefined | RTCIceCandidateInit[], NetworkError>
+    );
+    send_ice_candidate: (
+        (args_0: { meta: T; candidate: RTCIceCandidate; }) => AsyncResult<true, NetworkError>
+    );
+};
+
+export const CONNECTION_STATE = {
+    NONE: 'none',
+    DISCONNECTED: 'disconnected',
+    REMOTE_DISCONNECTED: 'remote_disconnected',
+    CREATING: 'creating',
+    SEARCHING: 'searching',
+    CONNECTING: 'connecting',
+    CONNECTED: 'connected',
+} as const;
+
+export type ConnectionState = typeof CONNECTION_STATE[keyof typeof CONNECTION_STATE];
+
+export type OnChannelError = (error: RTCError) => void;
+
+export type OnChannelOpen = () => void;
+
+export type OnChannelClose = () => void;
+
+export type ChannelMessage = ArrayBuffer;
+
+export type OnChannelMessage = (data: ChannelMessage) => void;
+
+export type OnConnectionState = (state: ConnectionState) => void;
+
+export type RTCCtx<T extends Record<string, any> = any> = {
+    destroyed: boolean;
+    pc: RTCPeerConnection;
+    dc: RTCDataChannel;
+    dc_label: string;
+    signaling: RTCSignalingProvider<T>;
+    on_channel_error: OnChannelError;
+    on_channel_open: OnChannelOpen;
+    on_channel_close: OnChannelClose;
+    on_channel_message: OnChannelMessage;
+    on_connection_state: OnConnectionState;
+    meta: T;
+};
+
+type CreateRTCCtxOptions<T extends Record<string, any> = Record<string, any>> = {
+    signaling: RTCSignalingProvider<T>;
+    channel_label: string;
+    on_channel_error?: OnChannelError;
+    on_channel_open?: OnChannelOpen;
+    on_channel_close?: OnChannelClose;
+    on_channel_message: OnChannelMessage;
+    on_connection_state: OnConnectionState;
+    meta?: T;
+};
+
+export function create_ctx<T extends Record<string, any> = Record<string, any>>(opts: CreateRTCCtxOptions<T>): RTCCtx<T> {
+    const out: RTCCtx<T> = {
+        destroyed: false,
+        pc: undefined as unknown as RTCPeerConnection,
+        dc: undefined as unknown as RTCDataChannel,
+        dc_label: opts.channel_label,
+        signaling: opts.signaling,
+        on_channel_error: opts.on_channel_error ?? noop,
+        on_channel_open: opts.on_channel_open ?? noop,
+        on_channel_message: opts.on_channel_message,
+        on_channel_close: opts.on_channel_close ?? noop,
+        on_connection_state: opts.on_connection_state,
+        meta: opts.meta ?? {} as T,
+    };
+    return out;
 }
 
-async function join_room(pc: RTCPeerConnection, room_id: RoomId, get_offer: GetOffer, send_answer: SendAnswer) {
-    const offer = await retry_on_undefined(get_offer, OFFER_POLL_RETRIES, OFFER_POLL_INTERVAL, { room_id });
-    if (offer.is_err) {
-        return offer;
+export async function destroy_ctx(ctx: undefined | RTCCtx): Promise<void> {
+    if (ctx === undefined) {
+        return;
     }
 
-    await pc.setRemoteDescription(offer.value.description);
-
-    const description = await pc.createAnswer();
-    await pc.setLocalDescription(description);
-
-    const answer = await send_answer({ room_id, description });
-    if (answer.is_err) {
-        return answer;
+    if (ctx.dc !== undefined) {
+        ctx.dc.close();
+        ctx.dc = undefined as any;
     }
 
-    return ok(true);
+    if (ctx.pc !== undefined) {
+        ctx.pc.close();
+        ctx.pc = undefined as any;
+    }
+
+    ctx.destroyed = true;
 }
 
-type GetIceCandidates = (args_0: { room_id: RoomId, is_host: boolean; }) => AsyncResult<undefined | RTCIceCandidateInit[], RoomNotFoundError | ServerError | ExceptionError>;
+function set_peer_connection(ctx: RTCCtx, pc: RTCPeerConnection): void {
+    pc.onicecandidate = async (event) => {
+        const candidate = event.candidate;
+        if (candidate === null) {
+            return;
+        }
 
-type SendIceCandidate = (args_0: { room_id: RoomId, is_host: boolean, candidate: RTCIceCandidate; }) => AsyncResult<true, RoomNotFoundError | ServerError | ExceptionError>;
+        await ctx.signaling.send_ice_candidate({
+            meta: ctx.meta,
+            candidate
+        });
+    };
 
-async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_host: boolean, get_ice_candidates: GetIceCandidates): AsyncResult<true, RetryError | RoomNotFoundError | ServerError | ExceptionError | StaleError> {
+    pc.onconnectionstatechange = (event) => {
+        const pc = event.target as RTCPeerConnection;
+        // TODO: improve this
+        switch (pc.connectionState) {
+            case 'connected':
+                ctx.on_connection_state(CONNECTION_STATE.CONNECTED);
+                break;
+            case 'disconnected':
+                console.log('disconnected', new Date().toLocaleTimeString())
+                ctx.on_connection_state(CONNECTION_STATE.DISCONNECTED);
+                break;
+            case 'failed':
+                break;
+            case 'closed':
+                console.log('closed', new Date().toLocaleTimeString())
+                break;
+            case 'new':
+                break;
+            case 'connecting':
+                ctx.on_connection_state(CONNECTION_STATE.CONNECTING);
+                break;
+        }
+    };
+
+    ctx.pc = pc;
+}
+
+function set_data_channel(ctx: RTCCtx, dc: RTCDataChannel): void {
+    function onerror(event: RTCErrorEvent) {
+        const error = event.error;
+        // https://datatracker.ietf.org/doc/html/rfc4960#section-3.3.10
+        // [Page 43]
+        if (error.errorDetail === "sctp-failure" && error.sctpCauseCode === 12) {
+            ctx.on_channel_close();
+            return;
+        }
+
+        ctx.on_channel_error(error);
+    }
+
+    function onclose() {
+        if (ctx.destroyed) {
+            return;
+        }
+
+        ctx.on_channel_close();
+    }
+
+    function onopen() {
+        ctx.on_channel_open();
+    }
+
+    function onmessage(event: MessageEvent) {
+        const data = event.data;
+        if (!(data instanceof ArrayBuffer)) {
+            window.reportError(new Error(`Expected ArrayBuffer as data but recived '${Object.getPrototypeOf(data)}' instead`));
+            return;
+        }
+
+        ctx.on_channel_message(data);
+    }
+
+    dc.onerror = onerror;
+    dc.onopen = onopen;
+    dc.onclose = onclose;
+    dc.onmessage = onmessage;
+    ctx.dc = dc;
+}
+
+function set_on_data_channel(ctx: RTCCtx): void {
+    ctx.pc.ondatachannel = ((event) => {
+        const dc = event.channel;
+        if (dc.label !== ctx.dc_label) {
+            const e = new Error(`Recived unknown data channel '${dc.label}'`);
+            // @ts-expect-error attach dc for debugging
+            e.meta = dc;
+            throw e;
+        }
+
+        set_data_channel(ctx, dc);
+    });
+};
+
+
+async function poll_answer<T = { description: RTCSessionDescriptionInit; }>(
+    ctx: RTCCtx
+): AsyncResult<T, AbortedError | RetryError | NetworkError> {
     return new Promise((resolve) => {
         let tries = 0;
-        const get_arg: Parameters<GetIceCandidates>[0] = {
-            room_id,
-            is_host,
-        };
+        const poll_arg = { meta: ctx.meta };
 
         async function recall() {
-            if (pc.iceConnectionState === 'connected') {
+            if (ctx.destroyed) {
+                return resolve(err({ tag: 'aborted' }));
+            }
+
+            tries += 1;
+
+            const result = await ctx.signaling.get_answer(poll_arg);
+            if (result.is_err) {
+                return resolve(result);
+            }
+            if (result.value !== undefined) {
+                return resolve(result as Ok<T>);
+            }
+            if (tries > ANSWER_POLL_RETRIES) {
+                return resolve(err({ tag: 'retries_exceeded', retries: ANSWER_POLL_RETRIES }));
+            }
+
+            setTimeout(recall, ANSWER_POLL_INTERVAL);
+        };
+
+        recall();
+    });
+}
+
+async function poll_ice_candidates(ctx: RTCCtx): AsyncResult<true, AbortedError | RetryError | NetworkError> {
+    return new Promise((resolve) => {
+        let tries = 0;
+        const poll_arg = { meta: ctx.meta };
+
+        async function recall() {
+            if (ctx.destroyed) {
+                return resolve(err({ tag: 'aborted', value: undefined }));
+            }
+            if (ctx.pc.iceConnectionState === 'connected') {
                 return resolve(ok(true));
             }
 
             tries += 1;
 
-            const result = await get_ice_candidates(get_arg);
+            const result = await ctx.signaling.get_ice_candidates(poll_arg);
             if (result.is_err) {
                 return resolve(result);
             }
@@ -115,20 +286,12 @@ async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_ho
             if (result.value !== undefined) {
                 for (const candidate of result.value) {
                     const ice_candidate = new RTCIceCandidate(candidate);
-                    try {
-                        await pc.addIceCandidate(ice_candidate);
-                    } catch (ex) {
-                        if (exception_is_peer_connection_closed(ex)) {
-                            return resolve(err({ type: 'stale_error', value: ex }));
-                        }
-    
-                        window.reportError(ex);
-                    }
+                    await ctx.pc.addIceCandidate(ice_candidate);
                 }
             }
 
             if (tries > ICE_CANDIDATES_POLL_RETRIES) {
-                return resolve(err({ type: 'retries_exceeded', retries: ICE_CANDIDATES_POLL_RETRIES }));
+                return resolve(err({ tag: 'retries_exceeded', retries: ICE_CANDIDATES_POLL_RETRIES }));
             }
 
             setTimeout(recall, ICE_CANDIDATES_POLL_INTERVAL);
@@ -138,189 +301,94 @@ async function poll_ice_candidates(pc: RTCPeerConnection, room_id: RoomId, is_ho
     });
 }
 
-let global_pc: RTCPeerConnection | undefined = undefined;
 
-let global_dc: RTCDataChannel | undefined = undefined;
-
-export type OnChannelError = (error: RTCError) => void;
-
-export type ChannelMessage = ArrayBuffer;
-
-export type OnChannelMessage = (data: ChannelMessage) => void;
-
-export type OnConnectionState = (state: ConnectionState) => void;
-
-let on_channel_error: OnChannelError = noop;
-let on_channel_message: OnChannelMessage = noop;
-let on_connection_state: OnConnectionState = noop;
-
-function global_dc_on_open() { }
-
-function global_dc_on_close() { }
-
-function global_dc_on_error(event: RTCErrorEvent) {
-    on_channel_error(event.error);
-}
-
-function global_dc_on_message(event: MessageEvent) {
-    const data = event.data;
-    if (!(data instanceof ArrayBuffer)) {
-        window.reportError(new Error(`Expected ArrayBuffer as data but recived '${Object.getPrototypeOf(data)}' instead`));
-        return;
-    }
-
-    on_channel_message(data);
-}
-
-function init_global_pc(room_id: RoomId, is_host: boolean, send_ice_candidate: SendIceCandidate) {
-    const pc = new RTCPeerConnection();
-    global_pc = pc;
-
-    pc.onicecandidate = async (event) => {
-        const candidate = event.candidate;
-        if (candidate === null) {
-            return;
-        }
-
-        await send_ice_candidate({ room_id, is_host, candidate });
-    };
-
-    pc.onconnectionstatechange = (event) => {
-        const pc = event.target as RTCPeerConnection;
-        // TODO: improve this
-        switch (pc.connectionState) {
-            case 'connected':
-                on_connection_state(connectionState.Connected);
-                break;
-            case 'disconnected':
-                on_connection_state(connectionState.Disconnected);
-                break;
-            case 'failed':
-            case 'closed':
-                break;
-            case 'new':
-                on_connection_state(connectionState.None);
-                break;
-            case 'connecting':
-                on_connection_state(connectionState.Connecting);
-                break;
-        }
-    };
-
-    if (is_host) {
-        global_dc = pc.createDataChannel('chat');
-        global_dc.onopen = global_dc_on_open;
-        global_dc.onclose = global_dc_on_close;
-        global_dc.onerror = global_dc_on_error;
-        global_dc.onmessage = global_dc_on_message;
-    }
-    else {
-        pc.ondatachannel = (event) => {
-            global_dc = event.channel;
-            global_dc.onopen = global_dc_on_open;
-            global_dc.onclose = global_dc_on_close;
-            global_dc.onerror = global_dc_on_error;
-            global_dc.onmessage = global_dc_on_message;
-        };
-    }
-
-    return pc;
-}
-
-export type RTCHandshakeHooks = {
-    get_offer: GetOffer;
-    send_offer: SendOffer;
-    cancel_offer: CancelOffer;
-    get_answer: GetAnswer;
-    send_answer: SendAnswer;
-    get_ice_candidates: GetIceCandidates;
-    send_ice_candidate: SendIceCandidate;
-};
-
-type InitRTCOptions = {
-    room_id: RoomId;
-    is_host: boolean;
-    on_channel_error: OnChannelError;
-    on_channel_message: OnChannelMessage;
-    on_connection_state: OnConnectionState;
-    handshake: RTCHandshakeHooks;
-};
-
-export async function init(options: InitRTCOptions) {
-    const room_id = options.room_id;
-    const is_host = options.is_host;
-    on_connection_state = options.on_connection_state;
-    on_channel_error = options.on_channel_error;
-    on_channel_message = options.on_channel_message;
-    const {
-        get_offer,
-        send_offer,
-        cancel_offer,
-        get_answer,
-        send_answer,
-        get_ice_candidates,
-        send_ice_candidate
-    } = options.handshake;
-
-    const pc = init_global_pc(room_id, is_host, send_ice_candidate);
+export async function init_host(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError> {
+    set_peer_connection(ctx, new RTCPeerConnection());
+    set_data_channel(ctx, ctx.pc.createDataChannel(ctx.dc_label));
 
     try {
-        if (is_host) {
-            on_connection_state(connectionState.Creating);
-            const r = await create_room(pc, room_id, send_offer, get_answer);
-            if (r.is_err) {
-                await cleanup();
-                return r;
-            }
-        }
-        else {
-            on_connection_state(connectionState.Connecting);
-            const r = await join_room(pc, room_id, get_offer, send_answer);
-            if (r.is_err) {
-                await cleanup();
-                return r;
-            }
+        const description = await ctx.pc.createOffer();
+        const offer = await ctx.signaling.send_offer({
+            meta: ctx.meta, description
+        });
+        if (offer.is_err) {
+            return err({ tag: OFFER_FAILED_ERROR });
         }
 
-        const r_ice = await poll_ice_candidates(pc, room_id, is_host, get_ice_candidates);
-        if (r_ice.is_err) {
-            await cleanup();
+        // should be after creating room because it auto triggers icecandidate on set
+        await ctx.pc.setLocalDescription(description);
+
+        const answer = await poll_answer(ctx);
+        if (answer.is_err) {
+            if (answer.error.tag === ABORTED_ERROR) {
+                return answer as Err<AbortedError>;
+            }
+            return err({ tag: ANSWER_FAILED_ERROR });
         }
 
-        return r_ice;
+        await ctx.pc.setRemoteDescription(new RTCSessionDescription(answer.value.description));
+
+        const candidates = await poll_ice_candidates(ctx);
+        if (candidates.is_err) {
+            if (candidates.error.tag === ABORTED_ERROR) {
+                return candidates as Err<AbortedError>;
+            }
+            return err({ tag: CANDIDATE_FAILED_ERROR });
+        }
+
+        return ok(true);
     }
     catch (ex) {
-        if (pc !== global_pc) {
-            return err<StaleError>({ type: 'stale_error', value: ex });
+        console.warn('unhandled init_host', ex);
+        return err({ tag: ABORTED_ERROR, value: ex });
+    }
+}
+
+export async function init_guest(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError> {
+    set_peer_connection(ctx, new RTCPeerConnection());
+    set_on_data_channel(ctx);
+
+    try {
+        const offer = await ctx.signaling.get_offer({ meta: ctx.meta });
+        if (offer.is_err) {
+            return err({ tag: OFFER_FAILED_ERROR });
         }
 
-        return err<ExceptionError>({ type: 'exception', value: ex });
+        await ctx.pc.setRemoteDescription(offer.value.description);
+
+        const description = await ctx.pc.createAnswer();
+        await ctx.pc.setLocalDescription(description);
+
+        const answer = await ctx.signaling.send_answer(
+            { meta: ctx.meta, description }
+        );
+        if (answer.is_err) {
+            return err({ tag: ANSWER_FAILED_ERROR });
+        }
+
+        const candidates = await poll_ice_candidates(ctx);
+        if (candidates.is_err) {
+            if (candidates.error.tag === ABORTED_ERROR) {
+                return candidates as Err<AbortedError>;
+            }
+            return err({ tag: CANDIDATE_FAILED_ERROR });
+        }
+
+        return ok(true);
+    }
+    catch (ex) {
+        console.warn('unhandled init_guest', ex);
+        return err({ tag: ABORTED_ERROR, value: ex });
     }
 }
 
-async function cleanup() {
-    if (global_dc !== undefined) {
-        global_dc.close();
-        global_dc = undefined;
-    }
-
-    if (global_pc !== undefined) {
-        global_pc.close();
-        global_pc = undefined;
-    }
+export function abort_init(ctx: RTCCtx): void {
+    destroy_ctx(ctx);
 }
 
-export async function deinit() {
-    await cleanup();
-}
-
-export function get_data_channel(): undefined | RTCDataChannel {
-    return global_dc;
-}
-
-export function send_message(data: ArrayBuffer): boolean {
+export function send_message(ctx: RTCCtx, data: ArrayBuffer): boolean {
     try {
-        global_dc!.send(data);
+        ctx.dc.send(data);
         return true;
     }
     catch (ex) {

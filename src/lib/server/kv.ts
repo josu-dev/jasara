@@ -22,7 +22,7 @@ export async function del_obj(key: string) {
 }
 
 export async function set_obj(key: string, obj: Record<string, any>) {
-    return redis.json.set(key, '$', obj);
+    await redis.json.set(key, '$', obj);
 }
 
 export async function set_field(key: string, path: string, value: any) {

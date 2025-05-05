@@ -8,12 +8,9 @@ import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE_NAME = `cache-${version}`;
+const CACHE_NAME = `cache-jasara-${version}`;
 
-const ASSETS = [
-    ...build, // the app itself
-    ...files  // everything in `static`
-];
+const ASSETS = [...build, ...files];
 
 sw.addEventListener('install', (event) => {
     async function create_new_cache() {

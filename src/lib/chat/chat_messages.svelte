@@ -23,7 +23,7 @@
   {#each messages as msg}
     <Message
       {msg}
-      on_cancel_file={chat.cancel_file_transfer}
+      on_cancel_file={chat.cancel_file}
       on_download_file={chat.download_file}
     />
   {/each}

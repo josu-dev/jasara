@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { page } from '$app/state';
-  import { DEFAULT_SEO } from '$lib/constants.js';
+  import { DEFAULT_METADATA } from '$lib/constants.js';
   import type { Snippet } from 'svelte';
 
   type Props = {
@@ -129,30 +129,26 @@
     canonical = 'current',
     // charset = "utf-8",
     description,
-    icon = DEFAULT_SEO.icon,
-    locale = DEFAULT_SEO.language_tag,
-    manifest = DEFAULT_SEO.manifest,
+    icon = DEFAULT_METADATA.icon,
+    locale = DEFAULT_METADATA.language_tag,
+    manifest = DEFAULT_METADATA.manifest,
     og_article,
     og_description,
     og_determiner = 'auto',
-    og_image = DEFAULT_SEO.image,
+    og_image = DEFAULT_METADATA.image,
     nofollow = false,
     noindex = false,
-    site_name = DEFAULT_SEO.site_name,
-    theme_color = DEFAULT_SEO.theme_color,
+    site_name = DEFAULT_METADATA.site_name,
+    theme_color = DEFAULT_METADATA.theme_color,
     title,
-    title_default = DEFAULT_SEO.title_default,
-    title_template = DEFAULT_SEO.title_template,
+    title_default = DEFAULT_METADATA.title_default,
+    title_template = DEFAULT_METADATA.title_template,
     type,
     url = 'current',
-    children
+    children,
   }: Props = $props();
 
-  let title_to_render = title
-    ? title_template
-      ? title_template.replace('%s', title)
-      : title
-    : title_default;
+  let title_to_render = title ? (title_template ? title_template.replace('%s', title) : title) : title_default;
   let robots = `${noindex ? 'noindex' : 'index'}, ${nofollow ? 'nofollow' : 'follow'}`;
 
   let currentUrl = $derived(page.url.origin + (page.url.pathname === '/' ? '' : page.url.pathname));

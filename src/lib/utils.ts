@@ -271,17 +271,22 @@ export function err<E>(error?: E): Err<E> {
     };
 }
 
-export type ExceptionError = {
-    type: 'exception',
+export type NetworkError = {
+    tag: 'network',
+    status: number;
+};
+
+export type UnhandledError = {
+    tag: 'unhandled',
     value: unknown;
 };
 
 export type RetriesExceededError = {
-    type: 'retries_exceeded',
+    tag: 'retries_exceeded',
     retries: number;
 };
 
-export type RetryError = ExceptionError | RetriesExceededError;
+export type RetryError = UnhandledError | RetriesExceededError;
 
 export async function retry_on_undefined<Args extends any[], T, E>(
     fn: (...args: Args) => Promise<Result<T | undefined, E>>,
@@ -299,7 +304,7 @@ export async function retry_on_undefined<Args extends any[], T, E>(
             try {
                 result = await fn(...args);
             } catch (ex) {
-                resolve(err({ type: 'exception', value: ex }));
+                resolve(err({ tag: 'unhandled', value: ex }));
                 return;
             }
 
@@ -308,12 +313,12 @@ export async function retry_on_undefined<Args extends any[], T, E>(
             }
 
             if (result.value !== undefined) {
-                resolve(ok(result.value));
+                resolve(result as Ok<T>);
                 return;
             }
 
             if (tries > retries) {
-                resolve(err({ type: 'retries_exceeded', retries: retries }));
+                resolve(err({ tag: 'retries_exceeded', retries: retries }));
                 return;
             }
 

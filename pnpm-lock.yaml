@@ -14,9 +14,9 @@ importers:
       '@upstash/redis':
         specifier: ^1.34.5
         version: 1.34.5
-      zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+      '@zod/mini':
+        specifier: 4.0.0-beta.20250503T014749
+        version: 4.0.0-beta.20250503T014749
     devDependencies:
       '@eslint/compat':
         specifier: ^1.2.5
@@ -621,6 +621,12 @@ packages:
 
   '@upstash/redis@1.34.5':
     resolution: {integrity: sha512-ZsYy1AX89OWQIGGQcO8CDBoWyLuVuvuJdjLKfj5WYxnhzYBzYb8E26gbvLO1lVlhVBAIuFX/k0LNjtv7wn2bcQ==}
+
+  '@zod/core@0.10.1':
+    resolution: {integrity: sha512-EmgYiJLMfZ3Dop9Wp7SadkEGYxbjGvrB/qRCT6PhGft9Eh1TbtNQYO9wEBgw4RE9JsmkolZ5Ah+tHu0EwoIy5g==}
+
+  '@zod/mini@4.0.0-beta.20250503T014749':
+    resolution: {integrity: sha512-qKqZWOQiSZZ/tekGTrmMQGI+PURd/wJyK4f/gKTWGXT9xbfIVIb6gHEHHA/+iTKJplK3cPiUn7iBlqLmUwgQcQ==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1409,9 +1415,6 @@ packages:
   zimmerframe@1.1.2:
     resolution: {integrity: sha512-rAbqEGa8ovJy4pyBxZM70hg4pE6gDgaQ0Sl9M3enG3I0d6H4XSAM3GeNGLKnsBpuijUow064sf7ww1nutC5/3w==}
 
-  zod@3.24.2:
-    resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
-
 snapshots:
 
   '@ampproject/remapping@2.3.0':
@@ -1860,6 +1863,12 @@ snapshots:
   '@upstash/redis@1.34.5':
     dependencies:
       crypto-js: 4.2.0
+
+  '@zod/core@0.10.1': {}
+
+  '@zod/mini@4.0.0-beta.20250503T014749':
+    dependencies:
+      '@zod/core': 0.10.1
 
   acorn-jsx@5.3.2(acorn@8.14.1):
     dependencies:
@@ -2529,5 +2538,3 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zimmerframe@1.1.2: {}
-
-  zod@3.24.2: {}

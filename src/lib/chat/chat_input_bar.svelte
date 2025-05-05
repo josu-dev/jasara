@@ -9,20 +9,21 @@
   const chat = use_chat_ctx();
 
   let textarea_el: HTMLTextAreaElement;
-  let raw_text = $state('');
   let disabled = $derived(chat.current.not_connected);
 
   function send_text() {
-    chat.send_text(raw_text, clear_text);
+    if (disabled) {
+      return;
+    }
+
+    if (chat.send_text(textarea_el.value)) {
+      textarea_el.value = '';
+      textarea_el.parentElement!.dataset.text = '';
+    }
   }
 
-  function clear_text() {
-    raw_text = '';
-    textarea_el.parentElement!.dataset.text = '';
-  }
-
-  function on_input(files: FileList | null) {
-    if (files == null || files.length === 0) {
+  function on_file_input(files: FileList | null) {
+    if (disabled || files == null || files.length === 0) {
       return;
     }
 
@@ -32,7 +33,7 @@
 
 <svelte:window
   onpaste={(ev) => {
-    if (is_editable_el(ev.target)) {
+    if (disabled || is_editable_el(ev.target)) {
       return;
     }
     proccess_data_transfer(ev.clipboardData, chat.send_files, chat.send_text);
@@ -46,7 +47,7 @@
       title="Attach file"
       class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed"
     >
-      <span class="sr-only">Attach file</span>
+      <span class="sr-only">Attach file(s)</span>
       <Icon.Paperclip />
       <input
         id="file_input"
@@ -55,7 +56,7 @@
         multiple
         class="hidden"
         oninput={(ev) => {
-          on_input(ev.currentTarget.files);
+          on_file_input(ev.currentTarget.files);
         }}
         {disabled}
       />
@@ -84,13 +85,11 @@
           ev.stopPropagation();
           proccess_data_transfer(ev.clipboardData, chat.send_files, noop);
         }}
-        {disabled}
-        bind:value={raw_text}
         bind:this={textarea_el}
       ></textarea>
     </div>
 
-    <IconButton onclick={send_text} title="Send file" {disabled}>
+    <IconButton onclick={send_text} title="Send text" {disabled}>
       <Icon.SendHorizontal />
     </IconButton>
   </div>

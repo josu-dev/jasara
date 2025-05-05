@@ -7,7 +7,7 @@
   const chat = use_chat_ctx({ messages: initial_messages, room_id: initial_room_id });
 
   $effect(() => {
-    return chat.deinit;
+    return chat.cleanup;
   });
 </script>
 
