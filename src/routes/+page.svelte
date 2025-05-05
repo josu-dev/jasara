@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Chat from '$lib/chat/index.js';
   import { Logo, Metadata } from '$lib/comps/index.js';
-  import { DEFAULT_ROOM_ID, DEFAULT_SYSTEM_MESSAGE } from '$lib/constants.js';
+  import { DEFAULT_ROOM_ID, DEFAULT_SYSTEM_MESSAGE, SITE_REPOSITORY } from '$lib/constants.js';
 
   const default_messages = [Chat.create_text_message(DEFAULT_SYSTEM_MESSAGE, 'system')];
 </script>
@@ -13,13 +13,21 @@
     class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden px-1 pb-1 font-sans sm:px-4 sm:pb-4"
   >
     <div class="flex flex-none justify-between py-1 sm:py-2 sm:px-1">
-      <div class="flex items-center gap-x-1.5 sm:gap-2">
-        <Logo class="mb-0.5" />
-        <h1
-          class="text-primary-100 self-center text-center align-middle text-base leading-none font-extrabold tracking-wider sm:text-4xl"
+      <div class="flex">
+        <a
+          href={SITE_REPOSITORY}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Github repository"
+          class="flex items-center gap-x-1.5 sm:gap-2"
         >
-          JAS<br class="sm:hidden" />ARA
-        </h1>
+          <Logo class="mb-0.5" />
+          <h1
+            class="text-primary-100 self-center text-center align-middle text-base leading-none font-extrabold tracking-wider sm:text-4xl"
+          >
+            JAS<br class="sm:hidden" />ARA
+          </h1>
+        </a>
       </div>
 
       <Chat.ConnectBar />

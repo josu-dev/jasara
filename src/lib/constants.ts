@@ -1,14 +1,17 @@
 export const SITE_NAME = "JASARA";
 
+export const SITE_REPOSITORY = 'https://github.com/josu-dev/jasara';
+
 export const DEFAULT_METADATA = {
     icon: '/favicon.svg',
     manifest: '/manifest.json',
     site_name: SITE_NAME,
     // same as background_color for mobile top bar otherwise change to '#f0b100'
+    // update `/manifest.json` accordingly
     theme_color: '#0a0a0a',
     background_color: '#0a0a0a',
     title_default: SITE_NAME,
-    title_template: '%s - ' + SITE_NAME,
+    title_template: `%s - ${SITE_NAME}`,
     image: {
         url: "/images/banner_og.webp",
         alt: "JASARA Banner",

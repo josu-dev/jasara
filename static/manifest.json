@@ -14,45 +14,45 @@
   "orientation": "portrait",
   "short_name": "Jasara",
   "start_url": "/",
-  "theme_color": "#f0b100",
+  "theme_color": "#0a0a0a",
   "icons": [
     {
-      "src": "/images/android/android-launchericon-512-512.png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "src": "/images/android/android-launchericon-512-512.png"
     },
     {
-      "src": "/images/android/android-launchericon-192-192.png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "src": "/images/android/android-launchericon-192-192.png"
     },
     {
-      "src": "/images/android/android-launchericon-144-144.png",
-      "sizes": "144x144"
+      "sizes": "144x144",
+      "src": "/images/android/android-launchericon-144-144.png"
     },
     {
-      "src": "/images/android/android-launchericon-96-96.png",
-      "sizes": "96x96"
+      "sizes": "96x96",
+      "src": "/images/android/android-launchericon-96-96.png"
     },
     {
-      "src": "/images/android/android-launchericon-72-72.png",
-      "sizes": "72x72"
+      "sizes": "72x72",
+      "src": "/images/android/android-launchericon-72-72.png"
     },
     {
-      "src": "/images/android/android-launchericon-48-48.png",
-      "sizes": "48x48"
+      "sizes": "48x48",
+      "src": "/images/android/android-launchericon-48-48.png"
     }
   ],
   "screenshots": [
     {
-      "src": "/images/screenshot_mobile.png",
-      "type": "image/png",
+      "form_factor": "narrow",
       "sizes": "412x915",
-      "form_factor": "narrow"
+      "src": "/images/screenshot_mobile.png",
+      "type": "image/png"
     },
     {
-      "src": "/images/screenshot_desktop.png",
-      "type": "image/png",
+      "form_factor": "wide",
       "sizes": "1366x1024",
-      "form_factor": "wide"
+      "src": "/images/screenshot_desktop.png",
+      "type": "image/png"
     }
   ]
 }
