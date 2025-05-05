@@ -1,12 +1,14 @@
-import { create_context, download_blob, err, get_human_file_type, now_utc, ok } from '$lib/utils.js';
+import { create_context, download_blob, err, get_human_file_type, noop, now_utc, ok } from '$lib/utils.js';
 import * as message from './message.js';
 import * as rtc from './rtc.js';
 import type { ConnectionState, MessageFileTransfer, MessageRenderable, RoomId } from './shared.js';
-import { CONNECTION_STATE, create_file_message, create_text_message, SENDER_ME, SENDER_OTHER, SENDER_SYSTEM } from './shared.js';
+import { CONNECTION_STATE, create_file_message, create_text_message, MESSAGE_TEXT, SENDER_ME, SENDER_OTHER, SENDER_SYSTEM } from './shared.js';
 
 
 const RTC_BUFFER_FULL_THRESHOLD = 1 * 1024 * 1024; // 1 MB buffer threshold
 const RTC_BUFFER_LOW_THRESHOLD = 512 * 1024; // 512 KB low buffer threshold
+
+const MESSAGE_COLLAPSE_DELTA = 60 * 1000;
 
 type RTCCtxMeta = {
     chat_id: number;
@@ -174,6 +176,22 @@ function create_chat(initial: CreateChatOptions) {
         state.messages.push(msg);
     }
 
+    function add_local_system_text(text: string, collapse: boolean = true): void {
+        const msg = create_text_message(text, SENDER_SYSTEM);
+        const last_index = messages.length - 1;
+        if (collapse && last_index > 0) {
+            const last = messages[last_index];
+            if (last.sender === SENDER_SYSTEM && last.type === MESSAGE_TEXT && (Date.parse(msg.ts) - Date.parse(last.ts) < MESSAGE_COLLAPSE_DELTA)) {
+                last.text += '\n' + msg.text;
+                last.ts = msg.ts;
+                state.messages[last_index] = last;
+                return;
+            }
+        }
+
+        messages.push(msg);
+        state.messages.push(msg);
+    }
 
     function update_file(m: MessageFileTransfer): void {
         const idx = file_transfer_id_to_idx.get(m.f_id);
@@ -197,27 +215,27 @@ function create_chat(initial: CreateChatOptions) {
                 return;
             }
             if (value === CONNECTION_STATE.CREATING) {
-                send_text_local(`Creating room (${room_id})...`, SENDER_SYSTEM);
+                add_local_system_text(`Creating room (${room_id})`, false);
                 return;
             }
             if (value === CONNECTION_STATE.SEARCHING) {
-                send_text_local(`Searching room (${room_id})... `, SENDER_SYSTEM);
+                add_local_system_text(`Searching room (${room_id}) `, false);
                 return;
             }
             if (value === CONNECTION_STATE.CONNECTING) {
-                send_text_local(`Connecting...`, SENDER_SYSTEM);
+                add_local_system_text(`Connecting`);
                 return;
             }
             if (value === CONNECTION_STATE.CONNECTED) {
-                send_text_local(`Connected`, SENDER_SYSTEM);
+                add_local_system_text(`Connected`);
                 return;
             }
             if (value === CONNECTION_STATE.DISCONNECTED) {
-                send_text_local(`Disconnected`, SENDER_SYSTEM);
+                add_local_system_text(`Disconnected`);
                 return;
             }
             if (value === CONNECTION_STATE.REMOTE_DISCONNECTED) {
-                send_text_local(`Remote disconnected`, SENDER_SYSTEM);
+                add_local_system_text(`Remote disconnected`);
                 return;
             }
         }
@@ -284,7 +302,7 @@ function create_chat(initial: CreateChatOptions) {
 
             case message.MESSAGE_FILE_CHUNK: {
                 const transfer = files_transfer.get(msg.id);
-                if (transfer === undefined) {
+                if (transfer === undefined || transfer.aborted) {
                     return;
                 }
 
@@ -295,6 +313,7 @@ function create_chat(initial: CreateChatOptions) {
                 if (transfer.chunks_received === transfer.chunks.length) {
                     const f_blob = new Blob(transfer.chunks, { type: transfer.f_type });
                     transfer.chunks.length = 0;
+                    transfer.f_total_chunks = 0;
                     transfer.blob = f_blob;
                     transfer.ts_end = now_utc();
                     transfer.completed = true;
@@ -313,8 +332,10 @@ function create_chat(initial: CreateChatOptions) {
 
                 transfer.aborted = true;
                 transfer.progress = -1;
+                transfer.chunks.length = 0;
+                transfer.f_total_chunks = 0;
                 update_file(transfer);
-                send_text_local(`File transfer '${transfer.f_name}' aborted`, SENDER_SYSTEM);
+                add_local_system_text(`Remote cancelled file transfer '${transfer.f_name}'`);
                 break;
             }
 
@@ -360,18 +381,23 @@ function create_chat(initial: CreateChatOptions) {
             }
 
             if (r.error.tag === 'offer_failed') {
-                send_text_local(`Offer fail room with id '${room_id}'...`, SENDER_SYSTEM);
+                add_local_system_text(`Failed to create room`);
             }
             else if (r.error.tag === 'answer_failed') {
-                send_text_local(`Timeout, no answer recived`, SENDER_SYSTEM);
+                add_local_system_text(`Timeout, no answer received`);
             }
             else if (r.error.tag === 'candidate_failed') {
-                send_text_local(`Timeout, connection negotation didn't succeed`, SENDER_SYSTEM);
+                add_local_system_text(`Timeout, connection negotation didn't succeed`);
+            }
+            else if (r.error.tag === 'network_no_internet') {
+                add_local_system_text(`Internet connection not available`);
+            }
+            else {
+                console.warn(r.error);
             }
 
             global_rtc_ctx = undefined as any;
             on_connection_state(CONNECTION_STATE.NONE);
-            console.warn(r.error);
             return;
         }
     }
@@ -410,18 +436,23 @@ function create_chat(initial: CreateChatOptions) {
             }
 
             if (r.error.tag === 'offer_failed') {
-                send_text_local(`Create the room before joining`, SENDER_SYSTEM);
+                add_local_system_text(`Create the room before joining`);
             }
             else if (r.error.tag === 'answer_failed') {
-                send_text_local(`Answer fail room with id '${room_id}'...`, SENDER_SYSTEM);
+                add_local_system_text(`Something happend to the room`);
             }
             else if (r.error.tag === 'candidate_failed') {
-                send_text_local(`Timeout, connection negotation didn't succeed`, SENDER_SYSTEM);
+                add_local_system_text(`Timeout, connection negotation didn't succeed`);
+            }
+            else if (r.error.tag === 'network_no_internet') {
+                add_local_system_text(`Internet connection not available`);
+            }
+            else {
+                console.warn(r.error);
             }
 
             global_rtc_ctx = undefined as any;
             on_connection_state(CONNECTION_STATE.NONE);
-            console.warn(r.error);
             return;
         }
     }
@@ -433,17 +464,17 @@ function create_chat(initial: CreateChatOptions) {
 
         await rtc.destroy_ctx(global_rtc_ctx);
         if (global_rtc_ctx.meta.is_host) {
-            await global_rtc_ctx.signaling.cancel_offer({ meta: global_rtc_ctx.meta });
+            await global_rtc_ctx.signaling.cancel_offer({ meta: global_rtc_ctx.meta }).catch(noop);
         }
         global_rtc_ctx = undefined as any;
-        send_text_local(`Connection cancelled`, SENDER_SYSTEM);
+        add_local_system_text(`Connection cancelled`);
         on_connection_state(CONNECTION_STATE.NONE);
     }
 
     async function disconnect() {
         await rtc.destroy_ctx(global_rtc_ctx);
         if (global_rtc_ctx.meta.is_host) {
-            await global_rtc_ctx.signaling.cancel_offer({ meta: global_rtc_ctx.meta });
+            await global_rtc_ctx.signaling.cancel_offer({ meta: global_rtc_ctx.meta }).catch(noop);
         }
         global_rtc_ctx = undefined as any;
         on_connection_state(CONNECTION_STATE.DISCONNECTED);

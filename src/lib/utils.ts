@@ -1,5 +1,6 @@
 import { getContext, setContext, type Snippet } from 'svelte';
 
+
 export function format_hs_mm(ts: string): string {
     const date = new Date(ts);
 
@@ -271,18 +272,30 @@ export function err<E>(error?: E): Err<E> {
     };
 }
 
+/**
+ * Negative status value means no internet connection
+ */
 export type NetworkError = {
-    tag: 'network',
+    tag: 'network';
     status: number;
 };
 
+export type NoInternetError = {
+    tag: 'network_no_internet';
+    value: TypeError
+};
+
+export function is_nointernet_ex(ex: unknown): ex is TypeError {
+    return ex instanceof TypeError;
+}
+
 export type UnhandledError = {
-    tag: 'unhandled',
+    tag: 'unhandled';
     value: unknown;
 };
 
 export type RetriesExceededError = {
-    tag: 'retries_exceeded',
+    tag: 'retries_exceeded';
     retries: number;
 };
 
