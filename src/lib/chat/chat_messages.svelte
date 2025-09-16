@@ -1,20 +1,33 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { use_chat_ctx } from './chat.svelte.js';
   import Message from './chat_message.svelte';
-  import type { ChatMessagesProps } from './shared.js';
+  import { SENDER_ME, type ChatMessagesProps } from './shared.js';
+
+  const AUTOSCROLL_BOTTOM_OFFSET = 80; // offset in px
 
   let {}: ChatMessagesProps = $props();
 
   const chat = use_chat_ctx();
   const messages = $derived(chat.current.messages);
 
-  let container_el: HTMLElement;
+  let container_el: undefined | HTMLElement = $state();
 
   $effect(() => {
-    // subscribes to messages changes taking into count collapsed ones
-    // assumes that there is one message always
-    messages[(messages.length || 1) - 1];
-    container_el.scrollTop = container_el.scrollHeight;
+    container_el?.scrollTo(0, container_el.scrollHeight);
+
+    return chat.listen('new_message', (msg) => {
+      if (container_el === undefined) return;
+
+      if (msg.sender !== SENDER_ME) {
+        const distance_from_bottom = container_el.scrollHeight - (container_el.scrollTop + container_el.offsetHeight);
+        if (distance_from_bottom > AUTOSCROLL_BOTTOM_OFFSET) return;
+      }
+
+      tick().then(() => {
+        container_el?.scrollTo(0, container_el.scrollHeight);
+      });
+    });
   });
 </script>
 

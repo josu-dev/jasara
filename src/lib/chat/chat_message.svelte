@@ -6,10 +6,10 @@
     format_hs_mm,
     is_codeblock,
     is_like_link,
-    parse_codeblock_content
+    parse_codeblock_content,
   } from '$lib/utils';
   import type { MessageRenderable } from './shared.js';
-  import { MESSAGE_FILE_TRANSFER, MESSAGE_TEXT } from './shared.js';
+  import { MESSAGE_FILE_TRANSFER, MESSAGE_TEXT, SENDER_ME } from './shared.js';
 
   type Props = {
     msg: MessageRenderable;
@@ -23,12 +23,12 @@
 <div class="flex items-start gap-2.5">
   <div
     class="bg-base-100 shadow-base-100 relative mb-3 flex max-w-11/12 flex-col px-3 pt-2 pb-1 shadow sm:max-w-[min(80%,40rem)]
-    {msg.sender === 'me'
+    {msg.sender === SENDER_ME
       ? 'ml-auto rounded-l-xl rounded-b-xl'
       : 'rounded-e-xl rounded-es-xl after:rounded-e-xl after:rounded-es-xl'}
     {msg.sender === 'system' ? 'text-yellow-50 italic' : ''}"
   >
-    {#if msg.sender !== 'me'}
+    {#if msg.sender !== SENDER_ME}
       <div class="flex justify-between text-sm">
         <span class="text-primary-100 font-medium">
           {msg.sender}
@@ -56,9 +56,7 @@
           <div class="mx-2">
             <div>
               <span class="flex items-center gap-2 text-sm font-normal break-all sm:break-words">
-                {msg.f_name}{#if msg.aborted}
-                  <span class="text-base-700 text-xs">(aborted)</span>
-                {/if}
+                {msg.f_name}
               </span>
             </div>
             <div class="text-base-700 flex gap-x-2 py-1 text-xs font-normal">
@@ -66,6 +64,9 @@
                 <span class="uppercase">{msg.f_type_human}</span>
               {/if}
               <span>{format_file_size(msg.f_size)}</span>
+              {#if msg.aborted}
+                <span class="sr-only text-xs">(canceled)</span>
+              {/if}
             </div>
           </div>
           {#if msg.completed}
@@ -76,7 +77,7 @@
                 }}
                 title="Download file"
               >
-                <Icon.SquareArrowDown class="size-8 stroke-1" />
+                <Icon.ArrowDownToLine class="size-7 stroke-1" />
               </IconButton>
             </div>
           {:else if msg.aborted}
@@ -93,7 +94,7 @@
                 }}
                 title="Cancel file"
               >
-                <Icon.SquareX class="size-8 stroke-1" />
+                <Icon.X class="size-7 stroke-1" />
               </IconButton>
             </div>
           {/if}

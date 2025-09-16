@@ -44,7 +44,7 @@
   <div class="grid grid-cols-[auto_1fr_auto] items-end">
     <label
       for="file_input"
-      title="Attach file"
+      title="Attach file(s)"
       class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed"
     >
       <span class="sr-only">Attach file(s)</span>
@@ -57,6 +57,8 @@
         class="hidden"
         oninput={(ev) => {
           on_file_input(ev.currentTarget.files);
+          // clears input to enable re-uploading the same file
+          ev.currentTarget.value = '';
         }}
         {disabled}
       />

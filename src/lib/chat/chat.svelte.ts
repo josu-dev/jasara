@@ -147,14 +147,21 @@ function is_stale_rtc_ctx(meta: RTCCtxMeta): number {
     return meta.chat_id !== (window.__rtcchat.uid - 1);
 }
 
+type ChatEventMap = {
+    new_message: Array<(msg: MessageRenderable) => void>;
+};
+
 function create_chat(initial: CreateChatOptions) {
     let global_rtc_ctx: rtc.RTCCtx<RTCCtxMeta>;
     let connection_state: ConnectionState = CONNECTION_STATE.NONE;
-    let room_id: RoomId = initial.room_id ?? "";
+    let room_id: RoomId = initial.room_id ?? '';
     let is_host = false;
     const messages: MessageRenderable[] = initial.messages ?? [];
     const file_transfer_id_to_idx: Map<string, number> = new Map();
     const files_transfer = new Map<message.FileId, MessageFileTransfer>();
+    const events_subscribers: ChatEventMap = {
+        new_message: []
+    };
 
     const state: ChatCurrentState = $state({
         connecion_state: connection_state,
@@ -171,9 +178,28 @@ function create_chat(initial: CreateChatOptions) {
         state.not_connected = connection_state !== CONNECTION_STATE.CONNECTED;
     }
 
+    function listen<T extends keyof ChatEventMap, L extends ChatEventMap[T][number]>(type: T, listener: L): () => void {
+        events_subscribers[type].push(listener);
+        return () => {
+            const listeners = events_subscribers[type];
+            for (let i = listeners.length - 1; i >= 0; i--) {
+                if (listeners[i] === listener) {
+                    listeners.splice(i, 1);
+                }
+            }
+        };
+    }
+
+    function notify<T extends keyof ChatEventMap>(type: T, data: Parameters<ChatEventMap[T][number]>[0]): void {
+        for (const sub of events_subscribers[type]) {
+            sub(data);
+        }
+    };
+
     function add_local_message(msg: MessageRenderable): void {
         messages.push(msg);
         state.messages.push(msg);
+        notify('new_message', msg);
     }
 
     function add_local_system_text(text: string, collapse: boolean = true): void {
@@ -185,12 +211,12 @@ function create_chat(initial: CreateChatOptions) {
                 last.text += '\n' + msg.text;
                 last.ts = msg.ts;
                 state.messages[last_index] = last;
+                notify('new_message', $state.snapshot(last));
                 return;
             }
         }
 
-        messages.push(msg);
-        state.messages.push(msg);
+        add_local_message(msg);
     }
 
     function update_file(m: MessageFileTransfer): void {
@@ -276,7 +302,7 @@ function create_chat(initial: CreateChatOptions) {
                     type: message.MESSAGE_FILE_META,
                     id: msg.id,
                     ts: msg.ts,
-                    sender: "other",
+                    sender: SENDER_OTHER,
                     f_type: msg.f_type,
                     f_size: msg.f_size,
                     f_id: msg.f_id,
@@ -335,7 +361,6 @@ function create_chat(initial: CreateChatOptions) {
                 transfer.chunks.length = 0;
                 transfer.f_total_chunks = 0;
                 update_file(transfer);
-                add_local_system_text(`Remote cancelled file transfer '${transfer.f_name}'`);
                 break;
             }
 
@@ -347,6 +372,7 @@ function create_chat(initial: CreateChatOptions) {
 
 
     async function cleanup() {
+        events_subscribers.new_message.length = 0;
         await rtc.destroy_ctx(global_rtc_ctx);
         global_rtc_ctx = undefined as any;
     }
@@ -592,13 +618,16 @@ function create_chat(initial: CreateChatOptions) {
         })!;
         rtc.send_message(global_rtc_ctx, encoded);
 
-        file_transfer_id_to_idx.delete(file_id);
-        files_transfer.delete(file_id);
+        // first update because needs idx
         transfer.chunks.length = 0;
         transfer.aborted = true;
         transfer.blob = undefined;
         transfer.file = undefined;
         update_file(transfer);
+
+        // cleanup internal references
+        file_transfer_id_to_idx.delete(file_id);
+        files_transfer.delete(file_id);
         return true;
     }
 
@@ -631,6 +660,7 @@ function create_chat(initial: CreateChatOptions) {
         send_files,
         cancel_file,
         download_file,
+        listen,
     };
 }
 

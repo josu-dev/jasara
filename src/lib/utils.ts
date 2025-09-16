@@ -91,9 +91,10 @@ export function parse_codeblock_content(text: string): string {
     return match ? match[1].trim() : '';
 }
 
+const link_pattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- .~/?%&$=#]*)?$/i;
+
 export function is_like_link(text: string): boolean {
-    const urlPattern = /^(https?:\/\/)?([\w-]{1,63}\.)+[\w-]{1,63}(:\d{1,5})?(\/[\w\- .~/?%&=#]*)?$/i;
-    return urlPattern.test(text);
+    return link_pattern.test(text);
 }
 
 export function ensure_protocol(link: string): string {
@@ -282,7 +283,7 @@ export type NetworkError = {
 
 export type NoInternetError = {
     tag: 'network_no_internet';
-    value: TypeError
+    value: TypeError;
 };
 
 export function is_nointernet_ex(ex: unknown): ex is TypeError {

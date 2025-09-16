@@ -1,3 +1,4 @@
+export { default as ArrowDownToLine } from '@lucide/svelte/icons/arrow-down-to-line';
 export { default as CircleOff } from '@lucide/svelte/icons/circle-off';
 export { default as Ellipsis } from '@lucide/svelte/icons/ellipsis';
 export { default as File } from '@lucide/svelte/icons/file';

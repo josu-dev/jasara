@@ -83,6 +83,6 @@ export function create_file_message(file: File, sender: string = "me"): MessageF
 
 export const SENDER_ME = 'me';
 
-export const SENDER_OTHER = 'other';
+export const SENDER_OTHER = 'remote';
 
 export const SENDER_SYSTEM = 'system';
