@@ -10,18 +10,18 @@
 
 <Chat.Provider initial_messages={default_messages} initial_room_id={DEFAULT_ROOM_ID}>
   <main
-    class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden px-1 pb-1 font-sans sm:px-4 sm:pb-4"
+    class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden font-sans sm:px-4 sm:pb-4"
   >
-    <div class="flex flex-none justify-between py-1 sm:py-2 sm:px-1">
-      <div class="flex">
+    <div class="flex flex-none justify-between py-1 px-2 sm:py-2 sm:px-0">
+      <div class="flex items-center">
         <a
           href={SITE_REPOSITORY}
           target="_blank"
           rel="noopener noreferrer"
           title="Github repository"
-          class="flex items-center gap-x-1.5 sm:gap-2"
+          class="flex items-center gap-x-1.5 rounded-md outline-offset-4 outline-focus focus-visible:outline sm:gap-2"
         >
-          <Logo class="mb-0.5" />
+          <Logo />
           <h1
             class="text-primary-100 self-center text-center align-middle text-base leading-none font-extrabold tracking-wider sm:text-4xl"
           >
@@ -33,7 +33,7 @@
       <Chat.ConnectBar />
     </div>
 
-    <div class="border-border flex h-full flex-col overflow-hidden rounded-md border">
+    <div class="border-border flex h-full flex-col overflow-hidden border-y sm:rounded-md sm:border">
       <div class="relative grid h-full overflow-hidden">
         <Chat.DropZone />
         <Chat.Messages />

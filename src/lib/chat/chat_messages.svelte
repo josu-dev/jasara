@@ -31,7 +31,10 @@
   });
 </script>
 
-<div bind:this={container_el} class="bg-base-200 scrollbar-themed flex-1 overflow-x-clip overflow-y-auto p-2 sm:p-4">
+<div
+  bind:this={container_el}
+  class="bg-base-200 scrollbar-themed flex-1 overflow-x-clip overflow-y-auto py-2 px-3 sm:p-4"
+>
   {#each messages as msg}
     <Message {msg} on_cancel_file={chat.cancel_file} on_download_file={chat.download_file} />
   {/each}

@@ -1,8 +1,14 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { Icon, IconButton } from '$lib/comps/index.js';
   import { is_editable_el, noop, proccess_data_transfer } from '$lib/utils.js';
   import { use_chat_ctx } from './chat.svelte.js';
   import type { ChatInputBarProps } from './shared.js';
+
+  const is_mobile =
+    browser &&
+    // @ts-expect-error
+    (navigator.userAgentData?.mobile ?? ('ontouchstart' in window || navigator.maxTouchPoints > 0));
 
   let {}: ChatInputBarProps = $props();
 
@@ -40,12 +46,12 @@
   }}
 />
 
-<div class="bg-base-100 border-border border-t px-3 py-2">
+<div class="bg-base-100 border-border border-t px-1 sm:px-3 py-2">
   <div class="grid grid-cols-[auto_1fr_auto] items-end">
     <label
       for="file_input"
       title="Attach file(s)"
-      class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed"
+      class="not-has-[input[disabled]]:hover:bg-base-400 has-[input[disabled]]:text-base-700 grid size-11 cursor-pointer place-items-center rounded-full has-[input[disabled]]:cursor-not-allowed has-[input:focus]:outline-focus has-[input:focus]:outline-2"
     >
       <span class="sr-only">Attach file(s)</span>
       <Icon.Paperclip />
@@ -54,10 +60,10 @@
         type="file"
         accept="*"
         multiple
-        class="hidden"
+        class="sr-only"
         oninput={(ev) => {
           on_file_input(ev.currentTarget.files);
-          // clears input to enable re-uploading the same file
+          // reset input to enable re-uploading the same file
           ev.currentTarget.value = '';
         }}
         {disabled}
@@ -75,9 +81,9 @@
         placeholder="Message"
         rows="1"
         spellcheck="true"
-        class="scrollbar-themed w-full max-w-full resize-none overflow-y-auto border-none bg-transparent px-2 py-2 break-all whitespace-break-spaces focus:ring-0 focus:outline-none disabled:cursor-not-allowed"
+        class="scrollbar-themed w-full max-w-full resize-none overflow-y-auto border-none bg-transparent px-2 py-2 break-all whitespace-break-spaces placeholder:text-fg-400 focus-visible:ring-0 disabled:cursor-not-allowed"
         onkeypress={(ev) => {
-          if (ev.key === 'Enter' && !ev.shiftKey) {
+          if (ev.key === 'Enter' && !is_mobile && !ev.shiftKey) {
             ev.preventDefault();
             send_text();
           }

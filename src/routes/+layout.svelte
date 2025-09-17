@@ -1,9 +1,12 @@
 <script lang="ts">
-	import '../app.css';
+  import ServiceWorker from '$lib/comps/ServiceWorker.svelte';
+  import '../app.css';
 
-	let { children } = $props();
+  let { children } = $props();
 </script>
 
 <div class="h-full">
-	{@render children()}
+  {@render children()}
 </div>
+
+<ServiceWorker />

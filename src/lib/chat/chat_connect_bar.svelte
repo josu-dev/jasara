@@ -94,7 +94,7 @@
       minlength="1"
       maxlength="16"
       readonly={is_loading}
-      class="border-border w-full rounded border bg-transparent px-2 py-1 autofill:bg-transparent focus:ring-0 focus:outline-none"
+      class="border-b-border border-t-transparent w-full border-x-0 border-y bg-transparent px-1.5 py-1 placeholder:text-fg-400 focus-visible:ring-0 focus-visible:border-b-focus"
       bind:value={room_id}
     />
   </div>
