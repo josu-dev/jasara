@@ -74,7 +74,7 @@
     title={text}
     data-hidden={hidden}
     data-loading={loading}
-    class="data-[hidden=true]:hidden data-[loading=true]:cursor-default data-[loading=true]:hover:bg-transparent"
+    class="size-9 data-[hidden=true]:hidden data-[loading=true]:cursor-default data-[loading=true]:hover:bg-transparent sm:size-11"
   >
     <IconNormal data-hide={loading} class="data-[hide=true]:hidden" />
     <Icon.Ellipsis
@@ -85,7 +85,7 @@
 {/snippet}
 
 <div class="flex items-center gap-x-2">
-  <div class="max-w-40 flex-1 sm:max-w-64">
+  <div class="max-w-36 flex-1 sm:max-w-48">
     <label for="room_id" class="sr-only">Room ID</label>
     <input
       id="room_id"
@@ -94,14 +94,14 @@
       minlength="1"
       maxlength="16"
       readonly={is_loading}
-      class="border-b-border border-t-transparent w-full border-x-0 border-y bg-transparent px-1.5 py-1 placeholder:text-fg-400 focus-visible:ring-0 focus-visible:border-b-focus"
+      class="border-b-border border-t-transparent w-full border-x-0 border-y bg-transparent px-1 pt-1.5 pb-0.5 placeholder:text-fg-400 focus-visible:ring-0 focus-visible:border-b-focus"
       bind:value={room_id}
     />
   </div>
 
   <div class="flex items-end gap-x-1">
     {#if is_connected}
-      <IconButton onclick={on_disconnect} title="Disconnect" class="hover:bg-red-600/50!">
+      <IconButton onclick={on_disconnect} title="Disconnect" class="hover:bg-red-600/50! size-9 sm:size-11">
         <Icon.Unplug />
       </IconButton>
     {:else}
@@ -116,7 +116,7 @@
         onclick={on_cancel}
         title="Cancel"
         data-show={is_loading}
-        class="hidden hover:bg-red-600/50! data-[show=true]:block"
+        class="hidden hover:bg-red-600/50! data-[show=true]:block size-9 sm:size-11"
       >
         <Icon.X />
       </IconButton>

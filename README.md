@@ -10,6 +10,7 @@ Available at [jasara.josu.codes](https://jasara.josu.codes)
 
 ## Features
 
+- [x] Auto file download
 - [x] Binary transfer
 - [x] Clipboard
 - [x] Drag and Drop

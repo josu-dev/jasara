@@ -1,4 +1,4 @@
-import { create_context, download_blob, err, get_human_file_type, noop, now_utc, ok } from '$lib/utils.js';
+import { create_context, download_blob, fetch_err, get_human_file_type, noop, now_utc, ok, read_from_local_storage, set_to_local_storage, unreachable } from '$lib/utils.js';
 import * as message from './message.js';
 import * as rtc from './rtc.js';
 import type { ConnectionState, MessageFileTransfer, MessageRenderable, RoomId } from './shared.js';
@@ -20,7 +20,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
     get_offer: async ({ meta }) => {
         const r = await fetch(`/api/signal/${meta.room_id}`);
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         const { data: { offer } } = await r.json();
@@ -33,7 +33,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
             body: JSON.stringify({ type: 'OFFER', offer: description })
         });
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         return ok(true);
@@ -45,7 +45,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
             body: JSON.stringify({ type: 'OFFER_CANCEL' })
         });
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         return ok(true);
@@ -53,7 +53,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
     get_answer: async ({ meta, }) => {
         const r = await fetch(`/api/signal/${meta.room_id}`);
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         const { data } = await r.json();
@@ -70,7 +70,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
             body: JSON.stringify({ type: 'ANSWER', answer: description })
         });
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         return ok(true);
@@ -82,7 +82,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
             body: JSON.stringify({ type: 'ANSWER_CANCEL' })
         });
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         return ok(true);
@@ -90,7 +90,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
     get_ice_candidates: async ({ meta, }) => {
         const r = await fetch(`/api/signal/${meta.room_id}`);
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         const { data } = await r.json();
@@ -111,7 +111,7 @@ const rtc_signaling: rtc.RTCSignalingProvider<RTCCtxMeta> = {
             body: JSON.stringify({ type: 'CANDIDATE', is_host: meta.is_host, candidate: candidate })
         });
         if (r.status !== 200) {
-            return err({ tag: 'network', status: r.status });
+            return fetch_err(r);
         }
 
         return ok(true);
@@ -130,6 +130,11 @@ type ChatCurrentState = {
     not_connected: boolean;
 };
 
+type ChatPreferences = {
+    auto_download: boolean;
+    auto_save: boolean;
+};
+
 type CreateChatOptions = {
     messages?: MessageRenderable[];
     room_id?: RoomId;
@@ -145,6 +150,26 @@ function chat_id(): number {
 function is_stale_rtc_ctx(meta: RTCCtxMeta): number {
     // @ts-expect-error ignore
     return meta.chat_id !== (window.__rtcchat.uid - 1);
+}
+
+const DEFAULT_CHAT_PREFERENCES: ChatPreferences = {
+    auto_download: true,
+    auto_save: false,
+};
+
+const PREFERENCES_KEY = 'chat_preferences';
+
+function get_initial_preferences(): ChatPreferences {
+    const stored = read_from_local_storage(PREFERENCES_KEY, { ...DEFAULT_CHAT_PREFERENCES });
+    const out: ChatPreferences = {
+        auto_download: stored.auto_download === true,
+        auto_save: stored.auto_save === true,
+    };
+    return out;
+}
+
+function save_preferences(preferences: ChatPreferences): void {
+    set_to_local_storage(PREFERENCES_KEY, preferences);
 }
 
 type ChatEventMap = {
@@ -170,6 +195,8 @@ function create_chat(initial: CreateChatOptions) {
         is_host: false,
         not_connected: true
     });
+
+    let preferences: ChatPreferences = $state.raw(get_initial_preferences());
 
     function sync_state(): void {
         state.connecion_state = connection_state;
@@ -344,6 +371,9 @@ function create_chat(initial: CreateChatOptions) {
                     transfer.ts_end = now_utc();
                     transfer.completed = true;
                     transfer.progress = 100;
+                    if (preferences.auto_save) {
+                        download_blob(transfer.blob, transfer.f_name);
+                    }
                 }
 
                 update_file(transfer);
@@ -406,21 +436,32 @@ function create_chat(initial: CreateChatOptions) {
                 return;
             }
 
+            let msg: string;
             if (r.error.tag === 'offer_failed') {
-                add_local_system_text(`Failed to create room`);
+                msg = `Room creation failed`;
             }
             else if (r.error.tag === 'answer_failed') {
-                add_local_system_text(`Timeout, no answer received`);
+                msg = `Timeout waiting for guest`;
             }
             else if (r.error.tag === 'candidate_failed') {
-                add_local_system_text(`Timeout, connection negotation didn't succeed`);
+                msg = `Connection negotiation failed`;
             }
-            else if (r.error.tag === 'network_no_internet') {
-                add_local_system_text(`Internet connection not available`);
+            else if (r.error.tag === 'network') {
+                if (r.error.value.tag === 'net') {
+                    msg = `Could not connect to the server`;
+                }
+                else if (r.error.value.status > 500) {
+                    msg = `Unexpected error from server`;
+                }
+                else {
+                    msg = `Unexpected error from client`;
+                }
             }
             else {
-                console.warn(r.error);
+                unreachable(r.error);
             }
+
+            add_local_system_text(msg);
 
             global_rtc_ctx = undefined as any;
             on_connection_state(CONNECTION_STATE.NONE);
@@ -461,21 +502,32 @@ function create_chat(initial: CreateChatOptions) {
                 return;
             }
 
+            let msg: string;
             if (r.error.tag === 'offer_failed') {
-                add_local_system_text(`Create the room before joining`);
+                msg = `Room not found`;
             }
             else if (r.error.tag === 'answer_failed') {
-                add_local_system_text(`Something happend to the room`);
+                msg = `Timeout waiting for host`;
             }
             else if (r.error.tag === 'candidate_failed') {
-                add_local_system_text(`Timeout, connection negotation didn't succeed`);
+                msg = `Connection negotiation failed`;
             }
-            else if (r.error.tag === 'network_no_internet') {
-                add_local_system_text(`Internet connection not available`);
+            else if (r.error.tag === 'network') {
+                if (r.error.value.tag === 'net') {
+                    msg = `Could not connect to the server`;
+                }
+                else if (r.error.value.status > 500) {
+                    msg = `Unexpected error from server`;
+                }
+                else {
+                    msg = `Unexpected error from client`;
+                }
             }
             else {
-                console.warn(r.error);
+                unreachable(r.error);
             }
+
+            add_local_system_text(msg);
 
             global_rtc_ctx = undefined as any;
             on_connection_state(CONNECTION_STATE.NONE);
@@ -644,11 +696,19 @@ function create_chat(initial: CreateChatOptions) {
         return true;
     }
 
+    function update_preferences(value: Partial<ChatPreferences>) {
+        const updated = { ...preferences, ...value };
+        save_preferences(updated);
+        preferences = updated;
+    }
 
     return {
         cleanup,
         get current() {
             return state;
+        },
+        get preferences(): Readonly<ChatPreferences> {
+            return preferences;
         },
         connect_host,
         connect_guest,
@@ -661,6 +721,7 @@ function create_chat(initial: CreateChatOptions) {
         cancel_file,
         download_file,
         listen,
+        update_preferences
     };
 }
 

@@ -76,6 +76,7 @@
                   on_download_file(msg.f_id);
                 }}
                 title="Download file"
+                class="size-11"
               >
                 <Icon.ArrowDownToLine class="size-7 stroke-1" />
               </IconButton>
@@ -93,6 +94,7 @@
                   on_cancel_file(msg.f_id);
                 }}
                 title="Cancel file"
+                class="size-11"
               >
                 <Icon.X class="size-7 stroke-1" />
               </IconButton>

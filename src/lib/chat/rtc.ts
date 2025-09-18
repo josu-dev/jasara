@@ -1,5 +1,5 @@
-import type { AsyncResult, Err, NetworkError, NoInternetError, Ok, RetryError } from '$lib/utils.js';
-import { err, is_nointernet_ex, noop, ok } from '$lib/utils.js';
+import type { AsyncResult, Err, NetworkError, Ok, RetryError } from '$lib/utils.js';
+import { err, is_net_ex, net_err, noop, ok } from '$lib/utils.js';
 
 
 const ANSWER_POLL_INTERVAL = 0.5 * 1000;
@@ -155,13 +155,11 @@ function set_peer_connection(ctx: RTCCtx, pc: RTCPeerConnection): void {
                 ctx.on_connection_state(CONNECTION_STATE.CONNECTED);
                 break;
             case 'disconnected':
-                console.log('disconnected', new Date().toLocaleTimeString());
                 ctx.on_connection_state(CONNECTION_STATE.DISCONNECTED);
                 break;
             case 'failed':
                 break;
             case 'closed':
-                console.log('closed', new Date().toLocaleTimeString());
                 break;
             case 'new':
                 break;
@@ -302,7 +300,7 @@ async function poll_ice_candidates(ctx: RTCCtx): AsyncResult<true, AbortedError 
 }
 
 
-export async function init_host(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError | NoInternetError> {
+export async function init_host(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError | NetworkError> {
     set_peer_connection(ctx, new RTCPeerConnection());
     set_data_channel(ctx, ctx.pc.createDataChannel(ctx.dc_label));
 
@@ -339,16 +337,16 @@ export async function init_host(ctx: RTCCtx): AsyncResult<true, AbortedError | O
         return ok(true);
     }
     catch (ex) {
-        if (is_nointernet_ex(ex)) {
-            return err({ tag: 'network_no_internet', value: ex });
+        if (is_net_ex(ex)) {
+            return net_err(ex);
         }
 
-        console.warn('unhandled init_host', ex);
+        console.error('unhandled init_host', ex);
         return err({ tag: ABORTED_ERROR, value: ex });
     }
 }
 
-export async function init_guest(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError | NoInternetError> {
+export async function init_guest(ctx: RTCCtx): AsyncResult<true, AbortedError | OfferFailerError | AnswerFailedError | CandidateFailedError | NetworkError> {
     set_peer_connection(ctx, new RTCPeerConnection());
     set_on_data_channel(ctx);
 
@@ -383,11 +381,11 @@ export async function init_guest(ctx: RTCCtx): AsyncResult<true, AbortedError | 
         return ok(true);
     }
     catch (ex) {
-        if (is_nointernet_ex(ex)) {
-            return err({ tag: 'network_no_internet', value: ex });
+        if (is_net_ex(ex)) {
+            return net_err(ex);
         }
 
-        console.warn('unhandled init_guest', ex);
+        console.error('unhandled init_guest', ex);
         return err({ tag: ABORTED_ERROR, value: ex });
     }
 }

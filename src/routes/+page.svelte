@@ -12,7 +12,7 @@
   <main
     class="mx-auto grid h-full max-w-4xl grid-cols-1 grid-rows-[auto_1fr] overflow-hidden font-sans sm:px-4 sm:pb-4"
   >
-    <div class="flex flex-none justify-between py-1 px-2 sm:py-2 sm:px-0">
+    <div class="flex flex-none justify-between gap-x-2 py-1 px-2 sm:py-2 sm:px-0">
       <div class="flex items-center">
         <a
           href={SITE_REPOSITORY}
@@ -23,14 +23,17 @@
         >
           <Logo />
           <h1
-            class="text-primary-100 self-center text-center align-middle text-base leading-none font-extrabold tracking-wider sm:text-4xl"
+            class="-mb-0.5 text-primary-100 text-center text-base leading-none font-extrabold tracking-wider sm:text-4xl"
           >
             JAS<br class="sm:hidden" />ARA
           </h1>
         </a>
       </div>
 
-      <Chat.ConnectBar />
+      <div class="flex gap-x-1">
+        <Chat.ConnectBar />
+        <Chat.Preferences />
+      </div>
     </div>
 
     <div class="border-border flex h-full flex-col overflow-hidden border-y sm:rounded-md sm:border">

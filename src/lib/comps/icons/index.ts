@@ -7,6 +7,7 @@ export { default as Image } from '@lucide/svelte/icons/image';
 export { default as Paperclip } from '@lucide/svelte/icons/paperclip';
 export { default as Plus } from '@lucide/svelte/icons/plus';
 export { default as Rabbit } from '@lucide/svelte/icons/rabbit';
+export { default as Save } from '@lucide/svelte/icons/save';
 export { default as Search } from '@lucide/svelte/icons/search';
 export { default as SendHorizontal } from '@lucide/svelte/icons/send-horizontal';
 export { default as SquareArrowDown } from '@lucide/svelte/icons/square-arrow-down';

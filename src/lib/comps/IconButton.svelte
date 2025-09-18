@@ -13,7 +13,7 @@
 <button
   {...restprops}
   {title}
-  class="grid place-items-center size-11 rounded-full bg-transparent cursor-pointer focus-themed disabled:cursor-not-allowed disabled:text-base-700 not-disabled:hover:bg-base-400 {classes}"
+  class="grid place-items-center rounded-full bg-transparent cursor-pointer focus-themed disabled:cursor-not-allowed disabled:text-base-700 not-disabled:hover:bg-base-400 {classes}"
 >
   <span class="sr-only">{title}</span>
   {@render children()}

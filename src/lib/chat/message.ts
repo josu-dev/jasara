@@ -179,7 +179,7 @@ export function encode_text(value: MessageText): MessageEncodeOut {
     buff.write_string(c, value.sender);
     buff.write_string(c, value.text);
     if (c.error) {
-        console.warn(c, value);
+        console.error(c, value);
         return;
     }
 
@@ -199,7 +199,7 @@ export function encode_file_meta(value: MessageFileMeta): MessageEncodeOut {
     buff.write_string(c, value.f_type);
     buff.write_uint32(c, value.f_total_chunks);
     if (c.error) {
-        console.warn(c, value);
+        console.error(c, value);
         return;
     }
 
@@ -215,7 +215,7 @@ export function encode_file_chunk(value: MessageFileChunk): MessageEncodeOut {
     buff.write_uint32(c, value.n);
     buff.write_uint8array(c, value.c);
     if (c.error) {
-        console.warn(c, value);
+        console.error(c, value);
         return;
     }
 
@@ -228,7 +228,7 @@ export function encode_file_abort(value: MessageFileAbort): MessageEncodeOut {
     buff.write_uint8(c, value.type);
     buff.write_string(c, value.id);
     if (c.error) {
-        console.warn(c, value);
+        console.error(c, value);
         return;
     }
 

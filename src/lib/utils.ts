@@ -177,8 +177,9 @@ export function now_utc(): string {
     return new Date().toISOString();
 }
 
-export function unreachable(message: string, value: never): never {
-    throw new Error(`Unreachable branch reached: ${message.replace('%s', JSON.stringify(value, null, 2))}`);
+export function unreachable(value: never): never {
+    console.error(value);
+    throw new Error(`Unreachable code path reached`);
 }
 
 export function create_context<T>(key: string) {
@@ -273,22 +274,46 @@ export function err<E>(error?: E): Err<E> {
     };
 }
 
-/**
- * Negative status value means no internet connection
- */
-export type NetworkError = {
-    tag: 'network';
+export type FetchError = {
+    tag: 'fetch';
+    value?: Response;
     status: number;
 };
 
-export type NoInternetError = {
-    tag: 'network_no_internet';
+export function fetch_err(r: Response): Err<NetworkError> {
+    return err({
+        tag: 'network',
+        value: {
+            tag: 'fetch',
+            value: r,
+            status: r.status
+        }
+    });
+}
+
+export type NetError = {
+    tag: 'net';
     value: TypeError;
 };
 
-export function is_nointernet_ex(ex: unknown): ex is TypeError {
+export function is_net_ex(ex: unknown): ex is TypeError {
     return ex instanceof TypeError;
 }
+
+export function net_err(ex: TypeError): Err<NetworkError> {
+    return err({
+        tag: 'network',
+        value: {
+            tag: 'net',
+            value: ex,
+        }
+    });
+}
+
+export type NetworkError = {
+    tag: 'network';
+    value: FetchError | NetError;
+};
 
 export type UnhandledError = {
     tag: 'unhandled';
@@ -341,4 +366,29 @@ export async function retry_on_undefined<Args extends any[], T, E>(
 
         recall();
     });
+}
+
+export function read_from_local_storage<T>(key: string, fallback: T): T {
+    if (typeof localStorage === "undefined") {
+        return fallback;
+    }
+    try {
+        const stored = localStorage.getItem(key);
+        if (stored === null) {
+            return fallback;
+        }
+        const parsed = JSON.parse(stored);
+        return parsed;
+    } catch {
+        return fallback;
+    }
+}
+
+export function set_to_local_storage(key: string, value: any): boolean {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        return false;
+    }
+    return true;
 }

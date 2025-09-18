@@ -97,7 +97,7 @@
       ></textarea>
     </div>
 
-    <IconButton onclick={send_text} title="Send text" {disabled}>
+    <IconButton onclick={send_text} title="Send text" {disabled} class="size-11">
       <Icon.SendHorizontal />
     </IconButton>
   </div>
